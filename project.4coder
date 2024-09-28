@@ -1,0 +1,54 @@
+version(2);
+project_name = "mplayer";
+
+
+indent_with_tabs = true;
+indent_width = "2";
+default_tab_width = "2";
+automatically_indent_text_on_save = true;
+
+
+patterns = {
+  "*.odin",
+  "*.c",
+  "*.cpp",
+  "*.h",
+  "*.m",
+  "*.bat",
+  "*.sh",
+  "*.4coder",
+};
+blacklist_patterns = {
+  ".*",
+};
+load_paths_base = {
+  { .path = ".", .relative = true, .recursive = true, },
+  { .path = "p:/apps/odin/core/os", .relative = false, .recursive = true, },
+  { .path = "p:/apps/odin/core/mem", .relative = false, .recursive = true, },
+  { .path = "p:/apps/odin/core/math", .relative = false, .recursive = true, },
+  { .path = "p:/apps/odin/core/container/", .relative = false, .recursive = true, },
+  { .path = "p:/apps/odin/core/prof/spall/", .relative = false, .recursive = true, },
+  { .path = "p:/apps/odin/vendor/sdl2", .relative = false, .recursive = true, },
+  { .path = "p:/apps/odin/vendor/OpenGL", .relative = false, .recursive = true, },
+  { .path = "p:/apps/odin/vendor/stb/truetype", .relative = false, .recursive = true, },
+};
+load_paths = {
+  .win = load_paths_base,
+  .linux = load_paths_base,
+  .mac = load_paths_base,
+};
+
+commands = {
+  .build = { .out = "*compilation*", .footer_panel = true, .save_dirty_files = true,
+    .linux = "./build.sh",
+    .win = "build.bat",
+  },
+	.build_test = { .out = "*compilation*", .footer_panel = true, .save_dirty_files = true,
+    .win = "test_editor.bat",
+  },
+};
+
+fkey_command = {
+  .F1 = "build",
+  .F2 = "build_test",
+};
