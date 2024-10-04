@@ -5,7 +5,6 @@ import "core:math"
 import "core:fmt"
 import "src:audio"
 import "src:bit_stream"
-import "core:log"
 
 Flac_Stream_Info :: struct {
 	min_block_size:  u16, // 16 bits
@@ -137,8 +136,6 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 		
 		switch md_type {
 			case 0: {
-				log.log(.Info, "Meta Data Block: Stream Info");
-				
 				// NOTE(fakhri): streaminfo block
 				assert(md_blocks_count == 1); // NOTE(fakhri): make sure we only have 1 streaminfo block
 				
@@ -155,8 +152,6 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 				
 				streaminfo.md5_check = bitstream_read_u128(&bitstream);
 				
-				log.log(.Info, streaminfo);
-				
 				// NOTE(fakhri): streaminfo checks
 				{
 					assert(streaminfo.min_block_size >= 16);
@@ -164,37 +159,30 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 				}
 			}
 			case 1: {
-				log.log(.Info, "Meta Data Block: Padding");
 				// NOTE(fakhri): padding
 				bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 2: {
-				log.log(.Info, "Meta Data Block: Application");
 				// NOTE(fakhri): application
 				bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 3: {
-				log.log(.Info, "Meta Data Block: Seektable");
 				// NOTE(fakhri): seektable
 				bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 4: {
-				log.log(.Info, "Meta Data Block: Vorbis Comment");
 				// vorbis comment
 				bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 5: {
-				log.log(.Info, "Meta Data Block: Cuesheet");
 				// NOTE(fakhri): cuesheet
 				bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 6: {
-				log.log(.Info, "Meta Data Block: Picture");
 				// NOTE(fakhri): Picture
 				bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case: {
-				log.log(.Error, "Unkown block");
 				bitstream_skip_bytes(&bitstream, int(md_size));
 				panic("Unkown block");
 			}
@@ -207,8 +195,6 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 	frames_count := 0;
 	// NOTE(fakhri): decode frames
 	for !bitstream_is_empty(&bitstream) {
-		log.log(.Info, "------------------------------------------------------------------------------------------------");
-		log.logf(.Info, "Decoding frame: %v", frames_count);
 		frames_count += 1;
 		
 		// TODO(fakhri): each frame can be decoded in parallel
@@ -387,14 +373,6 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 			
 			audio_samples_chunk = audio.make_audio_chunk(nb_channels, int(block_size), allocator);
 			audio.push_audio_chunk(&result, audio_samples_chunk);
-			
-			log.log(.Info, "Blocking Strat: ", block_strat);
-			log.logf(.Info, "coded_byte0: %b", coded_byte0);
-			log.log(.Info, "coded_number:", coded_number);
-			log.log(.Info, "bit_depth:", bits_depth);
-			log.log(.Info, "block_size: ", block_size);
-			log.log(.Info, "nb_channels: ", nb_channels);
-			log.log(.Info, "channel_config: ", channel_config);
 		}
 		
 		temp := runtime.default_temp_allocator_temp_begin();
@@ -404,7 +382,6 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 		
 		// NOTE(fakhri): decode subframes
 		for channel_index in 0..<nb_channels {
-			log.logf(.Info, "channel: %v", channel_index);
 			block_channel_samples := &block_samples[channel_index];
 			block_channel_samples.samples = make([]i32, block_size, temp_alloc);
 			

@@ -24,6 +24,6 @@ main :: proc() {
 	
 	fmt.println("Channels Count:", audio.channels_count);
 	fmt.println("Sample Rate:", audio.sample_rate);
-	fmt.println("Samples Count:", len(audio.channels[0].samples));
+	fmt.println("Samples Count:", audio.samples_count);
 	
 }
