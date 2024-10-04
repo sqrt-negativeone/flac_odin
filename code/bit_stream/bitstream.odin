@@ -8,7 +8,7 @@ Bit_Stream :: struct {
 }
 
 bitstream_is_empty :: proc(bitstream: ^Bit_Stream) -> bool {
-	result := bitstream.byte_index < len(bitstream.data);
+	result := bitstream.byte_index == len(bitstream.data);
 	return result;
 }
 
@@ -53,9 +53,12 @@ bitstream_read_bits_unsafe :: proc(bitstream: ^Bit_Stream, bits: u8) -> (result:
 }
 
 bitstream_read_sample_unencoded :: proc(bitstream: ^Bit_Stream, sample_bit_depth, wasted_bits: u8) -> i32 {
-	// TODO(fakhri): sign extension to 32 bits
-	// TODO(fakhri): convert to little endian
-	sample_value := bitstream_read_bits_unsafe(bitstream, sample_bit_depth) << wasted_bits;
+	sample_value := i32(bitstream_read_bits_unsafe(bitstream, sample_bit_depth) << wasted_bits);
+	bits_width := sample_bit_depth + wasted_bits;
+	sample_sign_bit := i32(sample_value & (1 << (bits_width - 1)));
+	mask_bits := i32(sample_sign_bit << (32 - bits_width));
+	mask_bits >>= 32 - bits_width;
+	sample_value |= mask_bits;
 	return i32(sample_value);
 }
 

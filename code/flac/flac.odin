@@ -27,7 +27,7 @@ Flac_Stereo_Channel_Config :: enum {
 	None,
 	Left_Right,
 	Left_Side,
-	Right_Side,
+	Side_Right,
 	Mid_Side
 }
 
@@ -83,7 +83,7 @@ flac_block_channel_config: []Flac_Stereo_Channel_Config = {
 	.None,
 	.None,
 	.Left_Side,
-	.Right_Side,
+	.Side_Right,
 	.Mid_Side,
 	.None,
 	.None
@@ -193,6 +193,8 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 	
 	// NOTE(fakhri): decode frames
 	for !bitstream_is_empty(&bitstream) {
+		// TODO(fakhri): each frame can be decoded in parallel
+		
 		block_crc: u8;
 		channel_config: Flac_Stereo_Channel_Config;
 		nb_channels := streaminfo.nb_channels;
@@ -399,9 +401,14 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 			sample_bit_depth := bits_depth - u8(wasted_bits);
 			
 			switch channel_config {
-				case .Left_Side, .Right_Side, .Mid_Side: {
+				case .Left_Side, .Mid_Side: {
 					// NOTE(fakhri): increase bit depth by 1 in case this is a side channel
 					if channel_index == 1 {
+						sample_bit_depth += 1;
+					}
+				}
+				case .Side_Right: {
+					if channel_index == 0 {
 						sample_bit_depth += 1;
 					}
 				}
@@ -426,29 +433,27 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 						block_channel_samples.samples[i] = bitstream_read_sample_unencoded(&bitstream, sample_bit_depth, wasted_bits);
 					}
 					
+					flac_decode_coded_residuals(&bitstream, block_channel_samples, block_size, int(v.order));
 					samples := block_channel_samples.samples;
-					
-					// TODO(fakhri): decode residuals
 					switch v.order {
 						case 0: {
 						}
 						case 1: {
-							for i in u32(v.order)..<block_size do samples[i] = samples[i - 1];
+							for i in u32(v.order)..<block_size do samples[i] += samples[i - 1];
 						}
 						case 2: {
-							for i in u32(v.order)..<block_size do samples[i] = 2 * samples[i - 1] - samples[i - 2];
+							for i in u32(v.order)..<block_size do samples[i] += 2 * samples[i - 1] - samples[i - 2];
 						}
 						case 3: {
-							for i in u32(v.order)..<block_size do samples[i] = 3 * samples[i - 1] - 3 * samples[i - 2] + samples[i - 3];
+							for i in u32(v.order)..<block_size do samples[i] += 3 * samples[i - 1] - 3 * samples[i - 2] + samples[i - 3];
 						}
 						case 4: {
-							for i in u32(v.order)..<block_size do samples[i] = 4 * samples[i - 1] - 6 * samples[i - 2] + 4 * samples[i - 3] - samples[i - 4];
+							for i in u32(v.order)..<block_size do samples[i] += 4 * samples[i - 1] - 6 * samples[i - 2] + 4 * samples[i - 3] - samples[i - 4];
 						}
 						case: {
 							panic("invalid order");
 						}
 					}
-					flac_decode_coded_residuals(&bitstream, block_channel_samples, block_size);
 				}
 				case Flac_Subframe_Linear_Prediction: {
 					for i in 0..<v.order {
@@ -462,19 +467,46 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 					
 					coefficients := make([]i32, v.order, temp_alloc);
 					for i in 0..<v.order {
-						coefficients[i] = i32(bitstream_read_bits_unsafe(&bitstream, u8(predictor_coef_precision_bits)));
+						coefficients[i] = bitstream_read_sample_unencoded(&bitstream, u8(predictor_coef_precision_bits), 0);
 					}
 					
+					flac_decode_coded_residuals(&bitstream, block_channel_samples, block_size, int(v.order));
 					samples := block_channel_samples.samples;
 					for i in u32(v.order)..<block_size {
+						predictor_value: i32;
 						for c, j in coefficients {
-							samples[i] += c * samples[int(i) - (int(v.order) - j)];
+							sample_val := samples[int(i) - j - 1];
+							predictor_value += c * sample_val;
 						}
-						samples[i] >>= right_shift;
+						predictor_value >>= right_shift;
+						samples[i] += predictor_value;
 					}
-					flac_decode_coded_residuals(&bitstream, block_channel_samples, block_size);
 				}
 			}
+		}
+		
+		// NOTE(fakhri): undo channel decoration
+		switch channel_config {
+			case .Left_Side: {
+				for i in 0..<block_size {
+					block_samples[1].samples[i] += block_samples[0].samples[i];
+				}
+			}
+			case .Side_Right: {
+				for i in 0..<block_size {
+					block_samples[0].samples[i] += block_samples[1].samples[i];
+				}
+			}
+			case .Mid_Side: {
+				for i in 0..<block_size {
+					mid := block_samples[0].samples[i];
+					dif := block_samples[1].samples[i];
+					
+					block_samples[0].samples[i] = (2 * mid + dif) >> 1;
+					block_samples[1].samples[i] = (2 * mid - dif) >> 1;
+				}
+			}
+			case .None, .Left_Right: // nothing
 		}
 		
 		// NOTE(fakhri): decode footer
@@ -488,7 +520,7 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 }
 
 
-flac_decode_coded_residuals :: proc(bitstream: ^bit_stream.Bit_Stream, block_samples: ^Flac_Channel_Samples, block_size: u32) {
+flac_decode_coded_residuals :: proc(bitstream: ^bit_stream.Bit_Stream, block_samples: ^Flac_Channel_Samples, block_size: u32, order: int) {
 	using bit_stream;
 	params_bits: u8;
 	escape_code: u8;
@@ -508,16 +540,16 @@ flac_decode_coded_residuals :: proc(bitstream: ^bit_stream.Bit_Stream, block_sam
 	
 	partition_order := bitstream_read_bits_unsafe(bitstream, 4);
 	partition_count := 1 << partition_order;
-	sample_index := 0;
+	sample_index := order;
 	for part_index in 0..<partition_count {
-		residual_samples_count := (block_size >> partition_order) - u32((part_index == 0)? partition_order:0);
+		residual_samples_count := (block_size >> partition_order) - u32((part_index == 0)? order:0);
 		paramter := u8(bitstream_read_bits_unsafe(bitstream, params_bits));
 		if paramter == escape_code {
 			// NOTE(fakhri): escape partition
 			residual_bits_precision := u8(bitstream_read_bits_unsafe(bitstream, 5));
 			if residual_bits_precision != 0 {
 				for res_index in 0..<residual_samples_count {
-					block_samples.samples[sample_index] += bitstream_read_sample_unencoded(bitstream, residual_bits_precision, 0);
+					block_samples.samples[sample_index] = bitstream_read_sample_unencoded(bitstream, residual_bits_precision, 0);
 					sample_index += 1;
 				}
 			}
@@ -537,7 +569,7 @@ flac_decode_coded_residuals :: proc(bitstream: ^bit_stream.Bit_Stream, block_sam
 					sample_value = ~sample_value;
 				}
 				
-				block_samples.samples[sample_index] += sample_value;
+				block_samples.samples[sample_index] = sample_value;
 				sample_index += 1;
 			}
 		}
