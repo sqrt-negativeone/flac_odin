@@ -2,9 +2,8 @@ package mplayer_flac
 
 import "base:runtime"
 import "core:math"
-import "core:fmt"
 import "src:audio"
-import "src:bit_stream"
+import bit_stream "src:bit_stream"
 
 Flac_Stream_Info :: struct {
 	min_block_size:  u16, // 16 bits
@@ -99,8 +98,6 @@ Flac_Channel_Samples :: struct {
 
 decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audio.Music_Audio)
 {
-	using bit_stream;
-	
 	// fLaC marker
 	// STREAMINFO block
 	// ... metadata blocks (127 different kinds of metadata blocks)
@@ -111,7 +108,7 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 		bits_left  = 8,
 	}
 	
-	assert(bitstream_read_u32be(&bitstream) == 0x664c6143); // "fLaC" marker
+	assert(bit_stream.bitstream_read_u32be(&bitstream) == 0x664c6143); // "fLaC" marker
 	streaminfo: Flac_Stream_Info;
 	
 	md_blocks_count := 0;
@@ -121,11 +118,11 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 	for !is_last_md_block {
 		md_blocks_count += 1;
 		
-		is_last_md_block = bool(bitstream_read_bits_unsafe(&bitstream, 1));
-		md_type := u8(bitstream_read_bits_unsafe(&bitstream, 7));
+		is_last_md_block = bool(bit_stream.bitstream_read_bits_unsafe(&bitstream, 1));
+		md_type := u8(bit_stream.bitstream_read_bits_unsafe(&bitstream, 7));
 		
 		// NOTE(fakhri): big endian
-		md_size := bitstream_read_u24be(&bitstream);
+		md_size := bit_stream.bitstream_read_u24be(&bitstream);
 		
 		assert(md_type != 127);
 		if md_blocks_count == 1 {
@@ -139,18 +136,18 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 				// NOTE(fakhri): streaminfo block
 				assert(md_blocks_count == 1); // NOTE(fakhri): make sure we only have 1 streaminfo block
 				
-				streaminfo.min_block_size = bitstream_read_u16be(&bitstream);
-				streaminfo.max_block_size = bitstream_read_u16be(&bitstream);
+				streaminfo.min_block_size = bit_stream.bitstream_read_u16be(&bitstream);
+				streaminfo.max_block_size = bit_stream.bitstream_read_u16be(&bitstream);
 				
-				streaminfo.min_frame_size = bitstream_read_u24be(&bitstream);
-				streaminfo.max_frame_size = bitstream_read_u24be(&bitstream);
+				streaminfo.min_frame_size = bit_stream.bitstream_read_u24be(&bitstream);
+				streaminfo.max_frame_size = bit_stream.bitstream_read_u24be(&bitstream);
 				
-				streaminfo.sample_rate     = u32(bitstream_read_bits_unsafe(&bitstream, 20));
-				streaminfo.nb_channels     = u8(bitstream_read_bits_unsafe(&bitstream, 3)) + 1;
-				streaminfo.bits_per_sample = u8(bitstream_read_bits_unsafe(&bitstream, 5)) + 1;
-				streaminfo.samples_count   = bitstream_read_bits_unsafe(&bitstream, 36);
+				streaminfo.sample_rate     = u32(bit_stream.bitstream_read_bits_unsafe(&bitstream, 20));
+				streaminfo.nb_channels     = u8(bit_stream.bitstream_read_bits_unsafe(&bitstream, 3)) + 1;
+				streaminfo.bits_per_sample = u8(bit_stream.bitstream_read_bits_unsafe(&bitstream, 5)) + 1;
+				streaminfo.samples_count   = bit_stream.bitstream_read_bits_unsafe(&bitstream, 36);
 				
-				streaminfo.md5_check = bitstream_read_u128(&bitstream);
+				streaminfo.md5_check = bit_stream.bitstream_read_u128(&bitstream);
 				
 				// NOTE(fakhri): streaminfo checks
 				{
@@ -160,30 +157,30 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 			}
 			case 1: {
 				// NOTE(fakhri): padding
-				bitstream_skip_bytes(&bitstream, int(md_size));
+				bit_stream.bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 2: {
 				// NOTE(fakhri): application
-				bitstream_skip_bytes(&bitstream, int(md_size));
+				bit_stream.bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 3: {
 				// NOTE(fakhri): seektable
-				bitstream_skip_bytes(&bitstream, int(md_size));
+				bit_stream.bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 4: {
 				// vorbis comment
-				bitstream_skip_bytes(&bitstream, int(md_size));
+				bit_stream.bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 5: {
 				// NOTE(fakhri): cuesheet
-				bitstream_skip_bytes(&bitstream, int(md_size));
+				bit_stream.bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 6: {
 				// NOTE(fakhri): Picture
-				bitstream_skip_bytes(&bitstream, int(md_size));
+				bit_stream.bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case: {
-				bitstream_skip_bytes(&bitstream, int(md_size));
+				bit_stream.bitstream_skip_bytes(&bitstream, int(md_size));
 				panic("Unkown block");
 			}
 		}
@@ -194,7 +191,7 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 	
 	frames_count := 0;
 	// NOTE(fakhri): decode frames
-	for !bitstream_is_empty(&bitstream) {
+	for !bit_stream.bitstream_is_empty(&bitstream) {
 		frames_count += 1;
 		
 		// TODO(fakhri): each frame can be decoded in parallel
@@ -211,16 +208,16 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 		
 		// NOTE(fakhri): decode header
 		{
-			sync_code := bitstream_read_bits_unsafe(&bitstream, 15);
+			sync_code := bit_stream.bitstream_read_bits_unsafe(&bitstream, 15);
 			assert(sync_code == 0x7ffc); // 0b111111111111100
 			
 			// TODO(fakhri): didn't test Variable_Size startegy yet!!
-			block_strat = Flac_Block_Strategy(bitstream_read_bits_unsafe(&bitstream, 1));
+			block_strat = Flac_Block_Strategy(bit_stream.bitstream_read_bits_unsafe(&bitstream, 1));
 			
-			block_size_bits  := bitstream_read_bits_unsafe(&bitstream, 4);
-			sample_rate_bits := bitstream_read_bits_unsafe(&bitstream, 4);
-			channels_bits    := bitstream_read_bits_unsafe(&bitstream, 4);
-			bit_depth_bits   := bitstream_read_bits_unsafe(&bitstream, 3);
+			block_size_bits  := bit_stream.bitstream_read_bits_unsafe(&bitstream, 4);
+			sample_rate_bits := bit_stream.bitstream_read_bits_unsafe(&bitstream, 4);
+			channels_bits    := bit_stream.bitstream_read_bits_unsafe(&bitstream, 4);
+			bit_depth_bits   := bit_stream.bitstream_read_bits_unsafe(&bitstream, 3);
 			
 			if bit_depth_bits == 0 {
 				bits_depth = streaminfo.bits_per_sample;
@@ -230,9 +227,9 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 				bits_depth = u8(flac_bits_depth[bit_depth_bits]);
 			}
 			
-			assert(bitstream_read_bits_unsafe(&bitstream, 1) == 0); // reserved bit must be 0
+			assert(bit_stream.bitstream_read_bits_unsafe(&bitstream, 1) == 0); // reserved bit must be 0
 			
-			coded_byte0 := bitstream_read_u8(&bitstream);
+			coded_byte0 := bit_stream.bitstream_read_u8(&bitstream);
 			
 			// TODO(fakhri): test if the coded number is decoded correctly
 			switch coded_byte0 { // 0xxx_xxxx
@@ -240,22 +237,22 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 					coded_number = u64(coded_byte0);
 				}
 				case 0xC0..=0xDF: { // 110x_xxxx 10xx_xxxx
-					coded_byte1 := bitstream_read_u8(&bitstream);;
+					coded_byte1 := bit_stream.bitstream_read_u8(&bitstream);;
 					assert(coded_byte1 & 0xC0 == 0x80);
 					coded_number = (u64(coded_byte0 & 0x1F) << 6) | u64(coded_byte1 & 0x3F);
 				}
 				case 0xE0..=0xEF : { // 1110_xxxx 10xx_xxxx 10xx_xxxx
-					coded_byte1 := bitstream_read_u8(&bitstream);;
-					coded_byte2 := bitstream_read_u8(&bitstream);;
+					coded_byte1 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte2 := bit_stream.bitstream_read_u8(&bitstream);;
 					
 					assert(coded_byte1 & 0xC0 == 0x80);
 					assert(coded_byte2 & 0xC0 == 0x80);
 					coded_number = (u64(coded_byte0 & 0x0F) << 12) | (u64(coded_byte1 & 0x3F) << 6) | u64(coded_byte2 & 0x3F);
 				}
 				case 0xF0..=0xF7: { // 1111_0xxx 10xx_xxxx 10xx_xxxx 10xx_xxxx
-					coded_byte1 := bitstream_read_u8(&bitstream);;
-					coded_byte2 := bitstream_read_u8(&bitstream);;
-					coded_byte3 := bitstream_read_u8(&bitstream);;
+					coded_byte1 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte2 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte3 := bit_stream.bitstream_read_u8(&bitstream);;
 					
 					assert(coded_byte1 & 0xC0 == 0x80);
 					assert(coded_byte2 & 0xC0 == 0x80);
@@ -263,10 +260,10 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 					coded_number = (u64(coded_byte0 & 0x07) << 18) | (u64(coded_byte1 & 0x3F) << 12) | (u64(coded_byte2 & 0x3F) << 6) | u64(coded_byte3 & 0x3F);
 				}
 				case 0xF8..=0xFB: { // 1111_10xx 10xx_xxxx 10xx_xxxx 10xx_xxxx 10xx_xxxx 
-					coded_byte1 := bitstream_read_u8(&bitstream);;
-					coded_byte2 := bitstream_read_u8(&bitstream);;
-					coded_byte3 := bitstream_read_u8(&bitstream);;
-					coded_byte4 := bitstream_read_u8(&bitstream);;
+					coded_byte1 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte2 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte3 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte4 := bit_stream.bitstream_read_u8(&bitstream);;
 					
 					assert(coded_byte1 & 0xC0 == 0x80);
 					assert(coded_byte2 & 0xC0 == 0x80);
@@ -279,11 +276,11 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 						u64(coded_byte4 & 0x3F));
 				}
 				case 0xFC..=0xFD: { // 1111_110x 10xx_xxxx 10xx_xxxx 10xx_xxxx 10xx_xxxx 10xx_xxxx 
-					coded_byte1 := bitstream_read_u8(&bitstream);;
-					coded_byte2 := bitstream_read_u8(&bitstream);;
-					coded_byte3 := bitstream_read_u8(&bitstream);;
-					coded_byte4 := bitstream_read_u8(&bitstream);;
-					coded_byte5 := bitstream_read_u8(&bitstream);;
+					coded_byte1 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte2 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte3 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte4 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte5 := bit_stream.bitstream_read_u8(&bitstream);;
 					
 					assert(coded_byte1 & 0xC0 == 0x80);
 					assert(coded_byte2 & 0xC0 == 0x80);
@@ -299,12 +296,12 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 						u64(coded_byte5 & 0x3F));
 				}
 				case 0xFE: {        // 1111_1110 10xx_xxxx 10xx_xxxx 10xx_xxxx 10xx_xxxx 10xx_xxxx 10xx_xxxx 
-					coded_byte1 := bitstream_read_u8(&bitstream);;
-					coded_byte2 := bitstream_read_u8(&bitstream);;
-					coded_byte3 := bitstream_read_u8(&bitstream);;
-					coded_byte4 := bitstream_read_u8(&bitstream);;
-					coded_byte5 := bitstream_read_u8(&bitstream);;
-					coded_byte6 := bitstream_read_u8(&bitstream);;
+					coded_byte1 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte2 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte3 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte4 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte5 := bit_stream.bitstream_read_u8(&bitstream);;
+					coded_byte6 := bit_stream.bitstream_read_u8(&bitstream);;
 					
 					assert(block_strat == .Variable_Size);
 					
@@ -336,10 +333,10 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 					block_size = 144 << block_size_bits;
 				}
 				case 6: {
-					block_size = u32(bitstream_read_u8(&bitstream)) + 1;
+					block_size = u32(bit_stream.bitstream_read_u8(&bitstream)) + 1;
 				}
 				case 7: {
-					block_size = u32(bitstream_read_u16be(&bitstream)) + 1;
+					block_size = u32(bit_stream.bitstream_read_u16be(&bitstream)) + 1;
 				}
 				case: {
 					block_size = 1 << block_size_bits;
@@ -354,13 +351,13 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 					sample_rate = flac_sample_rates[sample_rate_bits - 1]
 				}
 				case 0xC: {
-					sample_rate = u32(bitstream_read_u8(&bitstream)) * 1000;
+					sample_rate = u32(bit_stream.bitstream_read_u8(&bitstream)) * 1000;
 				}
 				case 0xD: {
-					sample_rate = u32(bitstream_read_u16be(&bitstream));
+					sample_rate = u32(bit_stream.bitstream_read_u16be(&bitstream));
 				}
 				case 0xE: {
-					sample_rate = 10 * u32(bitstream_read_u16be(&bitstream));
+					sample_rate = 10 * u32(bit_stream.bitstream_read_u16be(&bitstream));
 				}
 				case 0xF: {
 					panic("forbidden sample rate bits pattern");
@@ -369,7 +366,7 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 			
 			nb_channels    = flac_block_channel_count[channels_bits];
 			channel_config = flac_block_channel_config[channels_bits];
-			block_crc = bitstream_read_u8(&bitstream);
+			block_crc = bit_stream.bitstream_read_u8(&bitstream);
 			
 			audio_samples_chunk = audio.make_audio_chunk(nb_channels, int(block_size), allocator);
 			audio.push_audio_chunk(&result, audio_samples_chunk);
@@ -388,10 +385,10 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 			wasted_bits: u8;
 			subframe_type: Flac_Subframe_Type;
 			
-			if bitstream_read_bits_unsafe(&bitstream, 1) != 0 {
+			if bit_stream.bitstream_read_bits_unsafe(&bitstream, 1) != 0 {
 				panic("first bit must start with 0");
 			}
-			subframe_type_bits := bitstream_read_bits_unsafe(&bitstream, 6);
+			subframe_type_bits := bit_stream.bitstream_read_bits_unsafe(&bitstream, 6);
 			switch subframe_type_bits {
 				case 0: {
 					subframe_type = Flac_Subframe_Constant{};
@@ -407,10 +404,10 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 				}
 			}
 			
-			if bitstream_read_bits_unsafe(&bitstream, 1) == 1 { // NOTE(fakhri): has wasted bits
+			if bit_stream.bitstream_read_bits_unsafe(&bitstream, 1) == 1 { // NOTE(fakhri): has wasted bits
 				wasted_bits = 1;
 				
-				for bitstream_read_bits_unsafe(&bitstream, 1) != 1 {
+				for bit_stream.bitstream_read_bits_unsafe(&bitstream, 1) != 1 {
 					wasted_bits += 1;
 				}
 			}
@@ -434,7 +431,7 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 			
 			switch v in subframe_type {
 				case Flac_Subframe_Constant: {
-					sample_value := bitstream_read_sample_unencoded(&bitstream, sample_bit_depth, wasted_bits);
+					sample_value := bit_stream.bitstream_read_sample_unencoded(&bitstream, sample_bit_depth, wasted_bits);
 					
 					for i in 0..<block_size {
 						block_channel_samples.samples[i] = sample_value;
@@ -442,12 +439,12 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 				}
 				case Flac_Subframe_Verbatism: {
 					for i in 0..<block_size {
-						block_channel_samples.samples[i] = bitstream_read_sample_unencoded(&bitstream, sample_bit_depth, wasted_bits);
+						block_channel_samples.samples[i] = bit_stream.bitstream_read_sample_unencoded(&bitstream, sample_bit_depth, wasted_bits);
 					}
 				}
 				case Flac_Subframe_Fixed_Prediction: {
 					for i in 0..<v.order {
-						block_channel_samples.samples[i] = bitstream_read_sample_unencoded(&bitstream, sample_bit_depth, wasted_bits);
+						block_channel_samples.samples[i] = bit_stream.bitstream_read_sample_unencoded(&bitstream, sample_bit_depth, wasted_bits);
 					}
 					
 					flac_decode_coded_residuals(&bitstream, block_channel_samples, block_size, int(v.order));
@@ -474,17 +471,17 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 				}
 				case Flac_Subframe_Linear_Prediction: {
 					for i in 0..<v.order {
-						block_channel_samples.samples[i] = bitstream_read_sample_unencoded(&bitstream, sample_bit_depth, wasted_bits);
+						block_channel_samples.samples[i] = bit_stream.bitstream_read_sample_unencoded(&bitstream, sample_bit_depth, wasted_bits);
 					}
 					
-					predictor_coef_precision_bits := bitstream_read_bits_unsafe(&bitstream, 4);
+					predictor_coef_precision_bits := bit_stream.bitstream_read_bits_unsafe(&bitstream, 4);
 					assert(predictor_coef_precision_bits != 0xF);
 					predictor_coef_precision_bits += 1;
-					right_shift := bitstream_read_bits_unsafe(&bitstream, 5);
+					right_shift := bit_stream.bitstream_read_bits_unsafe(&bitstream, 5);
 					
 					coefficients := make([]i32, v.order, temp_alloc);
 					for i in 0..<v.order {
-						coefficients[i] = bitstream_read_sample_unencoded(&bitstream, u8(predictor_coef_precision_bits), 0);
+						coefficients[i] = bit_stream.bitstream_read_sample_unencoded(&bitstream, u8(predictor_coef_precision_bits), 0);
 					}
 					
 					flac_decode_coded_residuals(&bitstream, block_channel_samples, block_size, int(v.order));
@@ -542,8 +539,8 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 		
 		// NOTE(fakhri): decode footer
 		{
-			bitstream_advance_to_next_byte_boundary(&bitstream);
-			crc := bitstream_read_bits_unsafe(&bitstream, 16);
+			bit_stream.bitstream_advance_to_next_byte_boundary(&bitstream);
+			bit_stream.bitstream_read_bits_unsafe(&bitstream, 16);
 		}
 	}
 	
@@ -552,10 +549,9 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 
 
 flac_decode_coded_residuals :: proc(bitstream: ^bit_stream.Bit_Stream, block_samples: ^Flac_Channel_Samples, block_size: u32, order: int) {
-	using bit_stream;
 	params_bits: u8;
 	escape_code: u8;
-	switch bitstream_read_bits_unsafe(bitstream, 2) {
+	switch bit_stream.bitstream_read_bits_unsafe(bitstream, 2) {
 		case 0: {
 			params_bits = 4;
 			escape_code = 0xF;
@@ -569,7 +565,7 @@ flac_decode_coded_residuals :: proc(bitstream: ^bit_stream.Bit_Stream, block_sam
 		}
 	}
 	
-	partition_order := bitstream_read_bits_unsafe(bitstream, 4);
+	partition_order := bit_stream.bitstream_read_bits_unsafe(bitstream, 4);
 	partition_count := 1 << partition_order;
 	sample_index := order;
 	for part_index in 0..<partition_count {
@@ -579,23 +575,23 @@ flac_decode_coded_residuals :: proc(bitstream: ^bit_stream.Bit_Stream, block_sam
 		// and overlap that work with the non escape partition
 		// TODO(fakhri): do escape partitions in parallel
 		residual_samples_count := (block_size >> partition_order) - u32((part_index == 0)? order:0);
-		paramter := u8(bitstream_read_bits_unsafe(bitstream, params_bits));
+		paramter := u8(bit_stream.bitstream_read_bits_unsafe(bitstream, params_bits));
 		if paramter == escape_code {
 			// NOTE(fakhri): escape partition
-			residual_bits_precision := u8(bitstream_read_bits_unsafe(bitstream, 5));
+			residual_bits_precision := u8(bit_stream.bitstream_read_bits_unsafe(bitstream, 5));
 			if residual_bits_precision != 0 {
-				for res_index in 0..<residual_samples_count {
-					block_samples.samples[sample_index] = bitstream_read_sample_unencoded(bitstream, residual_bits_precision, 0);
+				for _ in 0..<residual_samples_count {
+					block_samples.samples[sample_index] = bit_stream.bitstream_read_sample_unencoded(bitstream, residual_bits_precision, 0);
 					sample_index += 1;
 				}
 			}
 		} else {
 			for _ in 0..<residual_samples_count {
 				msp: i32 = 0;
-				for bitstream_read_bits_unsafe(bitstream, 1) == 0 {
+				for bit_stream.bitstream_read_bits_unsafe(bitstream, 1) == 0 {
 					msp += 1;
 				}
-				lsp := i32(bitstream_read_bits_unsafe(bitstream, paramter));
+				lsp := i32(bit_stream.bitstream_read_bits_unsafe(bitstream, paramter));
 				
 				sample_value: i32 = 0;
 				folded_sample_value := (msp << paramter) | lsp;

@@ -4,9 +4,27 @@
 set exe_name=mplayer
 set code=%cd%
 
-set common_build_opts=-show-timings -collection:src=%code%\code -microarch:native -debug -warnings-as-errors
+:: On=1, Off=0
+set generate_debug_info=1
+
+:: Debug=0, Release=1
+set release_mode=0
+
+set common_build_opts=-show-timings -collection:src=%code%\code -microarch:native -warnings-as-errors -vet
 set build_plat_opts=%common_build_opts% -build-mode:exe
 set build_app_opts=%common_build_opts% -build-mode:dll
+
+
+if %release_mode% EQU 0 ( rem Debug
+	set common_build_opts=%common_build_opts% -o:none
+) else ( rem Release
+	set common_build_opts=%common_build_opts% -o:speed
+)
+
+if %generate_debug_info% EQU 1 ( rem Debug Info On
+	set common_build_opts=%common_build_opts% -debug
+)
+
 
 if not exist bld mkdir bld
 pushd bld

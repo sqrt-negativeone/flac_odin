@@ -1,8 +1,5 @@
 package mplayer
 
-import "core:log"
-import "core:path/filepath"
-import "base:runtime"
 import "core:os"
 import "core:fmt"
 import "src:flac"

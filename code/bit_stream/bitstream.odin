@@ -22,7 +22,6 @@ bitstream_advance_to_next_byte_boundary :: proc(bitstream: ^Bit_Stream) {
 bitstream_read_bits_unsafe :: proc(bitstream: ^Bit_Stream, bits: u8) -> (result: u64) {
 	bits := bits;
 	assert(bits <= 64);
-	bytes_needed := (bits / 8) + u8(bool(bits % 8));
 	
 	// NOTE(fakhri): align to byte boundary
 	if bitstream.bits_left != 8 && bits > bitstream.bits_left {
@@ -63,72 +62,67 @@ bitstream_read_sample_unencoded :: proc(bitstream: ^Bit_Stream, sample_bit_depth
 }
 
 bitstream_read_u8 :: proc(bitstream: ^Bit_Stream) -> (result: u8) {
-	using bitstream;
-	
 	// NOTE(fakhri): make sure we are at byte boundary
-	assert(bits_left == 8);
-	result = data[byte_index];
-	byte_index += 1;
+	assert(bitstream.bits_left == 8);
+	result = bitstream.data[bitstream.byte_index];
+	bitstream.byte_index += 1;
 	return;
 }
 
 bitstream_read_u16be :: proc(bitstream: ^Bit_Stream) -> (result: u16) {
-	using bitstream;
-	
 	// NOTE(fakhri): make sure we are at byte boundary
-	assert(bits_left == 8);
-	result = (u16(data[byte_index]) << 8) | u16(data[byte_index + 1]);
-	byte_index += 2;
+	assert(bitstream.bits_left == 8);
+	result = (u16(bitstream.data[bitstream.byte_index]) << 8) | u16(bitstream.data[bitstream.byte_index + 1]);
+	bitstream.byte_index += 2;
 	return;
 }
 
 bitstream_read_u16le :: proc(bitstream: ^Bit_Stream) -> (result: u16) {
-	using bitstream;
-	
 	// NOTE(fakhri): make sure we are at byte boundary
-	assert(bits_left == 8);
-	result = (u16(data[byte_index + 1]) << 8) | u16(data[byte_index]);
-	byte_index += 2;
+	assert(bitstream.bits_left == 8);
+	result = (u16(bitstream.data[bitstream.byte_index + 1]) << 8) | u16(bitstream.data[bitstream.byte_index]);
+	bitstream.byte_index += 2;
 	return;
 }
 
 bitstream_read_u24be :: proc(bitstream: ^Bit_Stream) -> (result: u32) {
-	using bitstream;
-	
 	// NOTE(fakhri): make sure we are at byte boundary
-	assert(bits_left == 8);
+	data := bitstream.data;
+	byte_index := bitstream.byte_index;
+	
+	assert(bitstream.bits_left == 8);
 	result = (u32(data[byte_index]) << 16) | (u32(data[byte_index + 1]) << 8) | u32(data[byte_index + 2]);
-	byte_index += 3;
+	bitstream.byte_index += 3;
 	return;
 }
 
 bitstream_read_u32be :: proc(bitstream: ^Bit_Stream) -> (result: u32) {
-	using bitstream;
+	data := bitstream.data;
+	byte_index := bitstream.byte_index;
 	
 	// NOTE(fakhri): make sure we are at byte boundary
-	assert(bits_left == 8);
+	assert(bitstream.bits_left == 8);
 	result = (u32(data[byte_index]) << 24) | (u32(data[byte_index + 1]) << 16) | (u32(data[byte_index + 2]) << 8) | u32(data[byte_index + 3]);
-	byte_index += 4;
+	bitstream.byte_index += 4;
 	return;
 }
 
 
 bitstream_read_u128 :: proc(bitstream: ^Bit_Stream) -> (result: u128) {
-	using bitstream;
+	data := bitstream.data;
+	byte_index := bitstream.byte_index;
 	
 	// NOTE(fakhri): make sure we are at byte boundary
-	assert(bits_left == 8);
+	assert(bitstream.bits_left == 8);
 	// TODO(fakhri): test if this cast produces correct result?
 	result = u128((cast(^u128be)raw_data(data[byte_index:]))^);
-	byte_index += 16;
+	bitstream.byte_index += 16;
 	return;
 }
 
 bitstream_skip_bytes :: proc(bitstream: ^Bit_Stream, bytes_count: int){
-	using bitstream;
-	
 	// NOTE(fakhri): make sure we are at byte boundary
-	assert(bits_left == 8);
-	byte_index += bytes_count;
+	assert(bitstream.bits_left == 8);
+	bitstream.byte_index += bytes_count;
 	return;
 }
