@@ -1,5 +1,9 @@
 package test_flac
 
+import "core:fmt"
+import "core:os"
+import "core:path/filepath"
+import "base:runtime"
 import "src:flac"
 import "core:testing"
 
@@ -57,4 +61,31 @@ test_flac_decode_appendix_d_example2 :: proc(t: ^testing.T) {
 @test
 test_flac_decode_appendix_d_example3 :: proc(t: ^testing.T) {
 	music_audio := flac.decode_flac(appendix_d_example3_data);
+}
+
+
+test_decoding_flac_file :: proc(info: os.File_Info, in_err: os.Errno, user_data: rawptr) -> (err: os.Errno, skip_dir: bool) {
+	if !info.is_dir {
+		temp := runtime.default_temp_allocator_temp_begin();
+		defer runtime.default_temp_allocator_temp_end(temp);
+		temp_alloc := runtime.arena_allocator(temp.arena);
+		
+		file_ext := filepath.ext(info.fullpath);
+		if file_ext == ".flac" {
+			fmt.println("decoding: ", info.fullpath);
+			data := os.read_entire_file_from_filename(info.fullpath, temp_alloc) or_return;
+			music_audio := flac.decode_flac(data, temp_alloc);
+			
+			fmt.println("Channels Count:", music_audio.channels_count);
+			fmt.println("Sample Rate:",    music_audio.sample_rate);
+			fmt.println("Samples Count:", music_audio.samples_count);
+			fmt.println("----------------------------------------------------------------------");
+		}
+	}
+	return;
+}
+
+@test
+test_flac_decode_subset_test_files :: proc(t: ^testing.T) {
+	filepath.walk("../tests/flac-test-files/subset", test_decoding_flac_file, nil);
 }

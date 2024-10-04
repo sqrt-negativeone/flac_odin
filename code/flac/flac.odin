@@ -1,10 +1,11 @@
 package mplayer_flac
 
 import "base:runtime"
-import "core:os"
+import "core:math"
 import "core:fmt"
 import "src:audio"
 import "src:bit_stream"
+import "core:log"
 
 Flac_Stream_Info :: struct {
 	min_block_size:  u16, // 16 bits
@@ -89,11 +90,15 @@ flac_block_channel_config: []Flac_Stereo_Channel_Config = {
 	.None
 }
 
+flac_bits_depth: []i16= {
+	-1, 8, 12, -1, 16, 20, 24, 32
+}
+
 Flac_Channel_Samples :: struct {
 	samples: []i32,
 }
 
-decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
+decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audio.Music_Audio)
 {
 	using bit_stream;
 	
@@ -107,11 +112,7 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 		bits_left  = 8,
 	}
 	
-	assert(bitstream_read_u8(&bitstream) == 'f');
-	assert(bitstream_read_u8(&bitstream) == 'L');
-	assert(bitstream_read_u8(&bitstream) == 'a');
-	assert(bitstream_read_u8(&bitstream) == 'C');
-	
+	assert(bitstream_read_u32be(&bitstream) == 0x664c6143); // "fLaC" marker
 	streaminfo: Flac_Stream_Info;
 	
 	md_blocks_count := 0;
@@ -126,8 +127,6 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 		
 		// NOTE(fakhri): big endian
 		md_size := bitstream_read_u24be(&bitstream);
-		// md_size := (u32(data[0]) << 16) | (u32(data[1]) << 8) | u32(data[2]);
-		
 		
 		assert(md_type != 127);
 		if md_blocks_count == 1 {
@@ -138,6 +137,8 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 		
 		switch md_type {
 			case 0: {
+				log.log(.Info, "Meta Data Block: Stream Info");
+				
 				// NOTE(fakhri): streaminfo block
 				assert(md_blocks_count == 1); // NOTE(fakhri): make sure we only have 1 streaminfo block
 				
@@ -154,6 +155,8 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 				
 				streaminfo.md5_check = bitstream_read_u128(&bitstream);
 				
+				log.log(.Info, streaminfo);
+				
 				// NOTE(fakhri): streaminfo checks
 				{
 					assert(streaminfo.min_block_size >= 16);
@@ -161,63 +164,91 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 				}
 			}
 			case 1: {
+				log.log(.Info, "Meta Data Block: Padding");
 				// NOTE(fakhri): padding
 				bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 2: {
+				log.log(.Info, "Meta Data Block: Application");
 				// NOTE(fakhri): application
 				bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 3: {
+				log.log(.Info, "Meta Data Block: Seektable");
 				// NOTE(fakhri): seektable
 				bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 4: {
+				log.log(.Info, "Meta Data Block: Vorbis Comment");
 				// vorbis comment
 				bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 5: {
+				log.log(.Info, "Meta Data Block: Cuesheet");
 				// NOTE(fakhri): cuesheet
 				bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case 6: {
+				log.log(.Info, "Meta Data Block: Picture");
 				// NOTE(fakhri): Picture
 				bitstream_skip_bytes(&bitstream, int(md_size));
 			}
 			case: {
+				log.log(.Error, "Unkown block");
 				bitstream_skip_bytes(&bitstream, int(md_size));
 				panic("Unkown block");
 			}
 		}
 	}
 	
+	result.sample_rate    = streaminfo.sample_rate;
+	result.channels_count = u32(streaminfo.nb_channels);
+	
+	frames_count := 0;
 	// NOTE(fakhri): decode frames
 	for !bitstream_is_empty(&bitstream) {
-		// TODO(fakhri): each frame can be decoded in parallel
+		log.log(.Info, "------------------------------------------------------------------------------------------------");
+		log.logf(.Info, "Decoding frame: %v", frames_count);
+		frames_count += 1;
 		
+		// TODO(fakhri): each frame can be decoded in parallel
 		block_crc: u8;
 		channel_config: Flac_Stereo_Channel_Config;
 		nb_channels := streaminfo.nb_channels;
 		sample_rate := streaminfo.sample_rate;
-		bits_depth := streaminfo.bits_per_sample;
+		bits_depth: u8;
 		block_size: u32;
 		
 		coded_number: u64 = 0;
 		block_strat: Flac_Block_Strategy;
+		audio_samples_chunk: ^audio.Audio_Samples_Chunk;
 		
 		// NOTE(fakhri): decode header
 		{
 			sync_code := bitstream_read_bits_unsafe(&bitstream, 15);
 			assert(sync_code == 0x7ffc); // 0b111111111111100
+			
+			// TODO(fakhri): didn't test Variable_Size startegy yet!!
 			block_strat = Flac_Block_Strategy(bitstream_read_bits_unsafe(&bitstream, 1));
 			
 			block_size_bits  := bitstream_read_bits_unsafe(&bitstream, 4);
 			sample_rate_bits := bitstream_read_bits_unsafe(&bitstream, 4);
 			channels_bits    := bitstream_read_bits_unsafe(&bitstream, 4);
 			bit_depth_bits   := bitstream_read_bits_unsafe(&bitstream, 3);
+			
+			if bit_depth_bits == 0 {
+				bits_depth = streaminfo.bits_per_sample;
+			}
+			else {
+				assert(bit_depth_bits != 3); // reserved
+				bits_depth = u8(flac_bits_depth[bit_depth_bits]);
+			}
+			
 			assert(bitstream_read_bits_unsafe(&bitstream, 1) == 0); // reserved bit must be 0
 			
 			coded_byte0 := bitstream_read_u8(&bitstream);
+			
+			// TODO(fakhri): test if the coded number is decoded correctly
 			switch coded_byte0 { // 0xxx_xxxx
 				case 0..=0x7F: {
 					coded_number = u64(coded_byte0);
@@ -322,7 +353,7 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 					block_size = u32(bitstream_read_u8(&bitstream)) + 1;
 				}
 				case 7: {
-					block_size = u32(bitstream_read_u16le(&bitstream)) + 1;
+					block_size = u32(bitstream_read_u16be(&bitstream)) + 1;
 				}
 				case: {
 					block_size = 1 << block_size_bits;
@@ -353,6 +384,17 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 			nb_channels    = flac_block_channel_count[channels_bits];
 			channel_config = flac_block_channel_config[channels_bits];
 			block_crc = bitstream_read_u8(&bitstream);
+			
+			audio_samples_chunk = audio.make_audio_chunk(nb_channels, int(block_size), allocator);
+			audio.push_audio_chunk(&result, audio_samples_chunk);
+			
+			log.log(.Info, "Blocking Strat: ", block_strat);
+			log.logf(.Info, "coded_byte0: %b", coded_byte0);
+			log.log(.Info, "coded_number:", coded_number);
+			log.log(.Info, "bit_depth:", bits_depth);
+			log.log(.Info, "block_size: ", block_size);
+			log.log(.Info, "nb_channels: ", nb_channels);
+			log.log(.Info, "channel_config: ", channel_config);
 		}
 		
 		temp := runtime.default_temp_allocator_temp_begin();
@@ -362,6 +404,7 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 		
 		// NOTE(fakhri): decode subframes
 		for channel_index in 0..<nb_channels {
+			log.logf(.Info, "channel: %v", channel_index);
 			block_channel_samples := &block_samples[channel_index];
 			block_channel_samples.samples = make([]i32, block_size, temp_alloc);
 			
@@ -393,9 +436,6 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 				for bitstream_read_bits_unsafe(&bitstream, 1) != 1 {
 					wasted_bits += 1;
 				}
-			}
-			else {
-				// TODO(fakhri): is 0 encoded as unary in case we don't have wasted bits too?
 			}
 			
 			sample_bit_depth := bits_depth - u8(wasted_bits);
@@ -509,6 +549,20 @@ decode_flac :: proc(data: []u8) -> (result: audio.Music_Audio)
 			case .None, .Left_Right: // nothing
 		}
 		
+		// NOTE(fakhri): copy the samples to result buffer
+		{
+			range_min_val := (1 << (streaminfo.bits_per_sample - 1));
+			range_max_val := (1 << (streaminfo.bits_per_sample - 1)) - 1;
+			
+			for channel_index in 0..<nb_channels {
+				for sample_index in 0..<int(block_size) {
+					sample_value := f32(block_samples[channel_index].samples[sample_index]);
+					sample_value = math.remap(sample_value, -f32(range_min_val), f32(range_max_val), -1, 1);
+					audio_samples_chunk.channels[channel_index].samples[sample_index] = sample_value;
+				}
+			}
+		}
+		
 		// NOTE(fakhri): decode footer
 		{
 			bitstream_advance_to_next_byte_boundary(&bitstream);
@@ -542,6 +596,11 @@ flac_decode_coded_residuals :: proc(bitstream: ^bit_stream.Bit_Stream, block_sam
 	partition_count := 1 << partition_order;
 	sample_index := order;
 	for part_index in 0..<partition_count {
+		// NOTE(fakhri): we can't do each partition in parallel, if the partition is not an escape partition
+		// then we can't know the size of it because it contains numbers encoded in unary, which have variable
+		// size... BUT, since we know the size of the escape partition, we can have it be decoded in parallel,
+		// and overlap that work with the non escape partition
+		// TODO(fakhri): do escape partitions in parallel
 		residual_samples_count := (block_size >> partition_order) - u32((part_index == 0)? order:0);
 		paramter := u8(bitstream_read_bits_unsafe(bitstream, params_bits));
 		if paramter == escape_code {
@@ -554,7 +613,6 @@ flac_decode_coded_residuals :: proc(bitstream: ^bit_stream.Bit_Stream, block_sam
 				}
 			}
 		} else {
-			// TODO(fakhri): check appendix D from the specification
 			for _ in 0..<residual_samples_count {
 				msp: i32 = 0;
 				for bitstream_read_bits_unsafe(bitstream, 1) == 0 {

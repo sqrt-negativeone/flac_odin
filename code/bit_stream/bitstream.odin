@@ -102,6 +102,16 @@ bitstream_read_u24be :: proc(bitstream: ^Bit_Stream) -> (result: u32) {
 	return;
 }
 
+bitstream_read_u32be :: proc(bitstream: ^Bit_Stream) -> (result: u32) {
+	using bitstream;
+	
+	// NOTE(fakhri): make sure we are at byte boundary
+	assert(bits_left == 8);
+	result = (u32(data[byte_index]) << 24) | (u32(data[byte_index + 1]) << 16) | (u32(data[byte_index + 2]) << 8) | u32(data[byte_index + 3]);
+	byte_index += 4;
+	return;
+}
+
 
 bitstream_read_u128 :: proc(bitstream: ^Bit_Stream) -> (result: u128) {
 	using bitstream;
