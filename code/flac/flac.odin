@@ -528,6 +528,7 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 			range_min_val := (1 << (streaminfo.bits_per_sample - 1));
 			range_max_val := (1 << (streaminfo.bits_per_sample - 1)) - 1;
 			
+			audio_samples_chunk.samples_count = int(block_size);
 			for channel_index in 0..<nb_channels {
 				for sample_index in 0..<int(block_size) {
 					sample_value := f32(block_samples[channel_index].samples[sample_index]);

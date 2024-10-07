@@ -10,6 +10,7 @@ Channel_Samples :: struct {
 Audio_Samples_Chunk :: struct {
 	next: ^Audio_Samples_Chunk,
 	channels: [MAX_CHANNEL_COUNT]Channel_Samples,
+	samples_count: int,
 }
 
 

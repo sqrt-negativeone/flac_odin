@@ -31,6 +31,7 @@ load_paths_base = {
   { .path = "p:/apps/odin/vendor/sdl2", .relative = false, .recursive = true, },
   { .path = "p:/apps/odin/vendor/OpenGL", .relative = false, .recursive = true, },
   { .path = "p:/apps/odin/vendor/stb/truetype", .relative = false, .recursive = true, },
+  { .path = "p:/apps/odin/vendor/miniaudio", .relative = false, .recursive = true, },
 };
 load_paths = {
   .win = load_paths_base,

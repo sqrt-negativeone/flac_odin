@@ -11,8 +11,6 @@ set generate_debug_info=1
 set release_mode=0
 
 set common_build_opts=-show-timings -collection:src=%code%\code -microarch:native -warnings-as-errors -vet
-set build_plat_opts=%common_build_opts% -build-mode:exe
-set build_app_opts=%common_build_opts% -build-mode:dll
 
 
 if %release_mode% EQU 0 ( rem Debug
@@ -24,6 +22,8 @@ if %release_mode% EQU 0 ( rem Debug
 if %generate_debug_info% EQU 1 ( rem Debug Info On
 	set common_build_opts=%common_build_opts% -debug
 )
+
+set build_plat_opts=%common_build_opts% -build-mode:exe
 
 
 if not exist bld mkdir bld
