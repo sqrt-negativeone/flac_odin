@@ -1,5 +1,8 @@
 package mplayer
 
+import "base:runtime"
+import mem_virtual "core:mem/virtual"
+import "core:mem"
 import "core:math"
 import "core:os"
 import "core:fmt"
@@ -49,12 +52,17 @@ audio_device_data :: proc "c" (device: ^ma.device, output_buf, input_buf: rawptr
 }
 
 
-
 main :: proc() {
 	if len(os.args) < 2 {
 		fmt.println("Usegae:\n\t", os.args[0], " filename");
 		return;
 	}
+	
+	temp_arena: mem_virtual.Arena;
+	if err := mem_virtual.arena_init_growing(&temp_arena, 2 * mem.Gigabyte); err != .None {
+		panic("couldn't init growing temp arena");
+	}
+	context.temp_allocator = mem_virtual.arena_allocator(&temp_arena);
 	
 	file_name := os.args[1];
 	data, ok := os.read_entire_file_from_filename(file_name);
@@ -62,7 +70,41 @@ main :: proc() {
 	
 	fmt.println("Reading file:", file_name);
 	if !ok {return;}
-	music_audio := flac.decode_flac(data);
+	flac_stream := flac.init_flac_stream(data);
+	music_audio: audio.Music_Audio;
+	music_audio.sample_rate = flac_stream.streaminfo.sample_rate;
+	music_audio.channels_count = u32(flac_stream.streaminfo.nb_channels);
+	
+	for {
+		runtime.free_all(context.temp_allocator);
+		block_samples, block_size := flac.decode_one_block(&flac_stream, context.temp_allocator);
+		if block_size == 0 {
+			break;
+		}
+		
+		nb_channels := u8(music_audio.channels_count);
+		audio_samples_chunk := audio.make_audio_chunk(nb_channels, int(block_size));
+		audio.push_audio_chunk(&music_audio, audio_samples_chunk);
+		
+		// NOTE(fakhri): copy the samples to result buffer
+		{
+			streaminfo := &flac_stream.streaminfo;
+			
+			range_min_val := (1 << (streaminfo.bits_per_sample - 1));
+			range_max_val := (1 << (streaminfo.bits_per_sample - 1)) - 1;
+			
+			audio_samples_chunk.samples_count = int(block_size);
+			for channel_index in 0..<nb_channels {
+				for sample_index in 0..<int(block_size) {
+					sample_value := f32(block_samples[channel_index].samples[sample_index]);
+					sample_value = math.remap(sample_value, -f32(range_min_val), f32(range_max_val), -1, 1);
+					audio_samples_chunk.channels[channel_index].samples[sample_index] = sample_value;
+				}
+			}
+		}
+		
+	}
+	
 	fmt.println("Done.");
 	
 	fmt.println("Channels Count:", music_audio.channels_count);
