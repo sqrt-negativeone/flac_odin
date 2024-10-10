@@ -88,447 +88,449 @@ test_flac_decode_subset_test_files :: proc(t: ^testing.T) {
 @test
 test_flac_decode_blocksize_4096 :: proc(t: ^testing.T) {
 	file_name := "../tests/flac-test-files/subset/01 - blocksize 4096.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_blocksize_4608 :: proc(t: ^testing.T) {
 	file_name := "../tests/flac-test-files/subset/02 - blocksize 4608.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_blocksize_16 :: proc(t: ^testing.T) {
 	file_name := "../tests/flac-test-files/subset/03 - blocksize 16.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_blocksize_192 :: proc(t: ^testing.T) {
 	file_name := "../tests/flac-test-files/subset/04 - blocksize 192.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_blocksize_254 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/05 - blocksize 254.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_blocksize_512 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/06 - blocksize 512.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_blocksize_725 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/07 - blocksize 725.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_blocksize_1000 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/08 - blocksize 1000.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_blocksize_1937 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/09 - blocksize 1937.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_blocksize_2304 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/10 - blocksize 2304.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_partition_order_8 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/11 - partition order 8.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_qlp_precision_15 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/12 - qlp precision 15 bit.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_qlp_precision_2 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/13 - qlp precision 2 bit.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_wasted_bits :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/14 - wasted bits.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_only_verbatism_subframes :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/15 - only verbatim subframes.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_part_order_8_with_escape_parts :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/16 - partition order 8 containing escaped partitions.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_all_fixed_orders :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/17 - all fixed orders.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_precision_search :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/18 - precision search.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_samplerate_35467Hz :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/19 - samplerate 35467Hz.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_samplerate_39kHz :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/20 - samplerate 39kHz.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_samplerate_22050Hz :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/21 - samplerate 22050Hz.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_12bps :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/22 - 12 bit per sample.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_8bps :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/23 - 8 bit per sample.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_variable_block_size_file_created_with_flake_revision_264 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/24 - variable blocksize file created with flake revision 264.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_variable_block_size_file_created_with_flake_revision_264_modified_to_create_smaller_blocks :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/25 - variable blocksize file created with flake revision 264, modified to create smaller blocks.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_var_blocksize_with_created_with_cuetool :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/26 - variable blocksize file created with CUETools.Flake 2.1.6.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_old_format_variable_block_size_created_with_flake :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/27 - old format variable blocksize file created with Flake 0.11.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_high_res_audio_default_settings :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/28 - high resolution audio, default settings.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_high_res_audio_blocksize_16384 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/29 - high resolution audio, blocksize 16384.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_high_resolution_audio_blocksize_13456 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/30 - high resolution audio, blocksize 13456.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_high_resolution_audio_using_only_32nd_order_predictors :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/31 - high resolution audio, using only 32nd order predictors.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_high_resolution_audio_partition_order_8_containing_escape_partition :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/32 - high resolution audio, partition order 8 containing escaped partitions.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_high_resolution_audio_partition_order_8_containing_escaped_partitions :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/33 - samplerate 192kHz.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_samplerate_192kHz :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/34 - samplerate 192kHz, using only 32nd order predictors.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_samplerate_192kHz_using_only_32nd_order_predictors :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/35 - samplerate 134560Hz.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_samplerate_134560Hz :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/36 - samplerate 384kHz.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_samplerate_384kHz :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/37 - 20 bit per sample.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_20_bit_per_sample :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/38 - 3 channels (3.0).flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_3_channels_3_0 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/39 - 4 channels (4.0).flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_4_channels_4_0 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/40 - 5 channels (5.0).flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_5_channels_5_0 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/41 - 6 channels (5.1).flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_6_channels_5_1 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/42 - 7 channels (6.1).flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_7_channels_6_1 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/43 - 8 channels (7.1).flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_8_channels_7_1 :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/44 - 8-channel surround, 192kHz, 24 bit, using only 32nd order predictors.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_8_channel_surround_192kHz_24_bit_using_only_32nd_order_predictors :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/45 - no total number of samples set.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_no_total_number_of_samples_set :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/46 - no min-max framesize set.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_no_min_max_framesize_set :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/47 - only STREAMINFO.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	defer delete(data);
+	music_audio := flac.decode_flac(data);
+	
 }
 
 @test
 test_flac_decode_only_STREAMINFO :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/48 - Extremely large SEEKTABLE.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_Extremely_large_SEEKTABLE :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/49 - Extremely large PADDING.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_Extremely_large_PADDING :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/50 - Extremely large PICTURE.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_Extremely_large_PICTURE :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/51 - Extremely large VORBISCOMMENT.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_Extremely_large_VORBISCOMMENT :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/52 - Extremely large APPLICATION.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_Extremely_large_APPLICATION :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/53 - CUESHEET with very many indexes.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_CUESHEET_with_very_many_indexes :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/54 - 1000x repeating VORBISCOMMENT.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_1000x_repeating_VORBISCOMMENT :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/55 - file 48-53 combined.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_file_48_53_combined :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/56 - JPG PICTURE.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_JPG_PICTURE :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/57 - PNG PICTURE.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_PNG_PICTURE :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/58 - GIF PICTURE.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_GIF_PICTURE :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/59 - AVIF PICTURE.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_AVIF_PICTURE :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/60 - mono audio.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_mono_audio :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/61 - predictor overflow check, 16-bit.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_predictor_overflow_check_16bit :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/62 - predictor overflow check, 20-bit.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_predictor_overflow_check_20bit :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/63 - predictor overflow check, 24-bit.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }
 
 @test
 test_flac_decode_predictor_overflow_check_24bit :: proc(t:^testing.T) {
 	file_name := "../tests/flac-test-files/subset/64 - rice partitions with escape code zero.flac";
-	data, ok := os.read_entire_file_from_filename(file_name, context.temp_allocator);
-	music_audio := flac.decode_flac(data, context.temp_allocator);
+	data, ok := os.read_entire_file_from_filename(file_name);
+	music_audio := flac.decode_flac(data);
 }

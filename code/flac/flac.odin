@@ -115,6 +115,10 @@ init_flac_stream :: proc(data: []u8) -> (flac_stream: Flac_Stream) {
 	md_blocks_count := 0;
 	is_last_md_block := false;
 	
+	// fLaC marker
+	// STREAMINFO block
+	// ... metadata blocks (127 different kinds of metadata blocks)
+	// audio frames
 	assert(bit_stream.bitstream_read_u32be(bitstream) == 0x664c6143); // "fLaC" marker
 	// NOTE(fakhri): parse meta data blocks
 	for !is_last_md_block {
@@ -500,21 +504,27 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 	switch channel_config {
 		case .Left_Side: {
 			for i in 0..<block_size {
-				block_samples[1].samples[i] += block_samples[0].samples[i];
+				side := block_samples[1].samples[i];
+				
+				block_samples[1].samples[i] = block_samples[0].samples[i] - side;
 			}
 		}
 		case .Side_Right: {
 			for i in 0..<block_size {
-				block_samples[0].samples[i] += block_samples[1].samples[i];
+				side := block_samples[0].samples[i];
+				
+				block_samples[0].samples[i] = side + block_samples[1].samples[i];
 			}
 		}
 		case .Mid_Side: {
 			for i in 0..<block_size {
-				mid := block_samples[0].samples[i];
-				dif := block_samples[1].samples[i];
+				mid  := block_samples[0].samples[i];
+				side := block_samples[1].samples[i];
 				
-				block_samples[0].samples[i] = (2 * mid + dif) >> 1;
-				block_samples[1].samples[i] = (2 * mid - dif) >> 1;
+				mid = (mid << 1) + (side & 1);
+				
+				block_samples[0].samples[i] = (mid + side) >> 1;
+				block_samples[1].samples[i] = (mid - side) >> 1;
 			}
 		}
 		case .None, .Left_Right: // nothing
@@ -530,430 +540,25 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 
 decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audio.Music_Audio)
 {
-	// fLaC marker
-	// STREAMINFO block
-	// ... metadata blocks (127 different kinds of metadata blocks)
-	// audio frames
-	bitstream: bit_stream.Bit_Stream = {
-		data = data,
-		byte_index = 0,
-		bits_left  = 8,
-	}
+	flac_stream := init_flac_stream(data);
 	
-	assert(bit_stream.bitstream_read_u32be(&bitstream) == 0x664c6143); // "fLaC" marker
-	streaminfo: Flac_Stream_Info;
-	
-	md_blocks_count := 0;
-	is_last_md_block := false;
-	
-	// NOTE(fakhri): parse meta data blocks
-	for !is_last_md_block {
-		md_blocks_count += 1;
-		
-		is_last_md_block = bool(bit_stream.bitstream_read_bits_unsafe(&bitstream, 1));
-		md_type := u8(bit_stream.bitstream_read_bits_unsafe(&bitstream, 7));
-		
-		// NOTE(fakhri): big endian
-		md_size := bit_stream.bitstream_read_u24be(&bitstream);
-		
-		assert(md_type != 127);
-		if md_blocks_count == 1 {
-			// NOTE(fakhri): make sure the first meta data block is a streaminfo block
-			// as per specification
-			assert(md_type == 0);
-		}
-		
-		switch md_type {
-			case 0: {
-				// NOTE(fakhri): streaminfo block
-				assert(md_blocks_count == 1); // NOTE(fakhri): make sure we only have 1 streaminfo block
-				
-				streaminfo.min_block_size = bit_stream.bitstream_read_u16be(&bitstream);
-				streaminfo.max_block_size = bit_stream.bitstream_read_u16be(&bitstream);
-				
-				streaminfo.min_frame_size = bit_stream.bitstream_read_u24be(&bitstream);
-				streaminfo.max_frame_size = bit_stream.bitstream_read_u24be(&bitstream);
-				
-				streaminfo.sample_rate     = u32(bit_stream.bitstream_read_bits_unsafe(&bitstream, 20));
-				streaminfo.nb_channels     = u8(bit_stream.bitstream_read_bits_unsafe(&bitstream, 3)) + 1;
-				streaminfo.bits_per_sample = u8(bit_stream.bitstream_read_bits_unsafe(&bitstream, 5)) + 1;
-				streaminfo.samples_count   = bit_stream.bitstream_read_bits_unsafe(&bitstream, 36);
-				
-				streaminfo.md5_check = bit_stream.bitstream_read_u128(&bitstream);
-				
-				// NOTE(fakhri): streaminfo checks
-				{
-					assert(streaminfo.min_block_size >= 16);
-					assert(streaminfo.max_block_size >= streaminfo.min_block_size);
-				}
-			}
-			case 1: {
-				// NOTE(fakhri): padding
-				bit_stream.bitstream_skip_bytes(&bitstream, int(md_size));
-			}
-			case 2: {
-				// NOTE(fakhri): application
-				bit_stream.bitstream_skip_bytes(&bitstream, int(md_size));
-			}
-			case 3: {
-				// NOTE(fakhri): seektable
-				bit_stream.bitstream_skip_bytes(&bitstream, int(md_size));
-			}
-			case 4: {
-				// vorbis comment
-				bit_stream.bitstream_skip_bytes(&bitstream, int(md_size));
-			}
-			case 5: {
-				// NOTE(fakhri): cuesheet
-				bit_stream.bitstream_skip_bytes(&bitstream, int(md_size));
-			}
-			case 6: {
-				// NOTE(fakhri): Picture
-				bit_stream.bitstream_skip_bytes(&bitstream, int(md_size));
-			}
-			case: {
-				bit_stream.bitstream_skip_bytes(&bitstream, int(md_size));
-				panic("Unkown block");
-			}
-		}
-	}
+	bitstream := &flac_stream.bitstream;
+	streaminfo := &flac_stream.streaminfo;
 	
 	result.sample_rate    = streaminfo.sample_rate;
 	result.channels_count = u32(streaminfo.nb_channels);
 	
-	frames_count := 0;
 	// NOTE(fakhri): decode frames
-	for !bit_stream.bitstream_is_empty(&bitstream) {
-		frames_count += 1;
-		
-		// TODO(fakhri): each frame can be decoded in parallel
-		block_crc: u8;
-		channel_config: Flac_Stereo_Channel_Config;
-		nb_channels := streaminfo.nb_channels;
-		sample_rate := streaminfo.sample_rate;
-		bits_depth: u8;
-		block_size: u32;
-		
-		coded_number: u64 = 0;
-		block_strat: Flac_Block_Strategy;
-		audio_samples_chunk: ^audio.Audio_Samples_Chunk;
-		
-		// NOTE(fakhri): decode header
-		{
-			sync_code := bit_stream.bitstream_read_bits_unsafe(&bitstream, 15);
-			assert(sync_code == 0x7ffc); // 0b111111111111100
-			
-			// TODO(fakhri): didn't test Variable_Size startegy yet!!
-			block_strat = Flac_Block_Strategy(bit_stream.bitstream_read_bits_unsafe(&bitstream, 1));
-			
-			block_size_bits  := bit_stream.bitstream_read_bits_unsafe(&bitstream, 4);
-			sample_rate_bits := bit_stream.bitstream_read_bits_unsafe(&bitstream, 4);
-			channels_bits    := bit_stream.bitstream_read_bits_unsafe(&bitstream, 4);
-			bit_depth_bits   := bit_stream.bitstream_read_bits_unsafe(&bitstream, 3);
-			
-			if bit_depth_bits == 0 {
-				bits_depth = streaminfo.bits_per_sample;
-			}
-			else {
-				assert(bit_depth_bits != 3); // reserved
-				bits_depth = u8(flac_bits_depth[bit_depth_bits]);
-			}
-			
-			assert(bit_stream.bitstream_read_bits_unsafe(&bitstream, 1) == 0); // reserved bit must be 0
-			
-			coded_byte0 := bit_stream.bitstream_read_u8(&bitstream);
-			
-			// TODO(fakhri): test if the coded number is decoded correctly
-			switch coded_byte0 { // 0xxx_xxxx
-				case 0..=0x7F: {
-					coded_number = u64(coded_byte0);
-				}
-				case 0xC0..=0xDF: { // 110x_xxxx 10xx_xxxx
-					coded_byte1 := bit_stream.bitstream_read_u8(&bitstream);;
-					assert(coded_byte1 & 0xC0 == 0x80);
-					coded_number = (u64(coded_byte0 & 0x1F) << 6) | u64(coded_byte1 & 0x3F);
-				}
-				case 0xE0..=0xEF : { // 1110_xxxx 10xx_xxxx 10xx_xxxx
-					coded_byte1 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte2 := bit_stream.bitstream_read_u8(&bitstream);;
-					
-					assert(coded_byte1 & 0xC0 == 0x80);
-					assert(coded_byte2 & 0xC0 == 0x80);
-					coded_number = (u64(coded_byte0 & 0x0F) << 12) | (u64(coded_byte1 & 0x3F) << 6) | u64(coded_byte2 & 0x3F);
-				}
-				case 0xF0..=0xF7: { // 1111_0xxx 10xx_xxxx 10xx_xxxx 10xx_xxxx
-					coded_byte1 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte2 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte3 := bit_stream.bitstream_read_u8(&bitstream);;
-					
-					assert(coded_byte1 & 0xC0 == 0x80);
-					assert(coded_byte2 & 0xC0 == 0x80);
-					assert(coded_byte3 & 0xC0 == 0x80);
-					coded_number = (u64(coded_byte0 & 0x07) << 18) | (u64(coded_byte1 & 0x3F) << 12) | (u64(coded_byte2 & 0x3F) << 6) | u64(coded_byte3 & 0x3F);
-				}
-				case 0xF8..=0xFB: { // 1111_10xx 10xx_xxxx 10xx_xxxx 10xx_xxxx 10xx_xxxx 
-					coded_byte1 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte2 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte3 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte4 := bit_stream.bitstream_read_u8(&bitstream);;
-					
-					assert(coded_byte1 & 0xC0 == 0x80);
-					assert(coded_byte2 & 0xC0 == 0x80);
-					assert(coded_byte3 & 0xC0 == 0x80);
-					assert(coded_byte4 & 0xC0 == 0x80);
-					coded_number = ((u64(coded_byte0 & 0x03) << 24) | 
-						(u64(coded_byte1 & 0x3F) << 18) | 
-						(u64(coded_byte2 & 0x3F) << 12) | 
-						(u64(coded_byte3 & 0x3F) << 6)  |
-						u64(coded_byte4 & 0x3F));
-				}
-				case 0xFC..=0xFD: { // 1111_110x 10xx_xxxx 10xx_xxxx 10xx_xxxx 10xx_xxxx 10xx_xxxx 
-					coded_byte1 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte2 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte3 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte4 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte5 := bit_stream.bitstream_read_u8(&bitstream);;
-					
-					assert(coded_byte1 & 0xC0 == 0x80);
-					assert(coded_byte2 & 0xC0 == 0x80);
-					assert(coded_byte3 & 0xC0 == 0x80);
-					assert(coded_byte4 & 0xC0 == 0x80);
-					assert(coded_byte5 & 0xC0 == 0x80);
-					
-					coded_number = ((u64(coded_byte0 & 0x01) << 30) | 
-						(u64(coded_byte1 & 0x3F) << 24) | 
-						(u64(coded_byte2 & 0x0F) << 18) | 
-						(u64(coded_byte3 & 0x3F) << 12) | 
-						(u64(coded_byte4 & 0x3F) << 6)  | 
-						u64(coded_byte5 & 0x3F));
-				}
-				case 0xFE: {        // 1111_1110 10xx_xxxx 10xx_xxxx 10xx_xxxx 10xx_xxxx 10xx_xxxx 10xx_xxxx 
-					coded_byte1 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte2 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte3 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte4 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte5 := bit_stream.bitstream_read_u8(&bitstream);;
-					coded_byte6 := bit_stream.bitstream_read_u8(&bitstream);;
-					
-					assert(block_strat == .Variable_Size);
-					
-					assert(coded_byte1 & 0xC0 == 0x80);
-					assert(coded_byte2 & 0xC0 == 0x80);
-					assert(coded_byte3 & 0xC0 == 0x80);
-					assert(coded_byte4 & 0xC0 == 0x80);
-					assert(coded_byte5 & 0xC0 == 0x80);
-					assert(coded_byte6 & 0xC0 == 0x80);
-					
-					coded_number = ((u64(coded_byte1 & 0x3F) << 30) | 
-						(u64(coded_byte2 & 0x3F) << 24) | 
-						(u64(coded_byte3 & 0x0F) << 18) | 
-						(u64(coded_byte4 & 0x3F) << 12) | 
-						(u64(coded_byte5 & 0x3F) << 6) | 
-						u64(coded_byte6 & 0x3F));
-				}
-			}
-			
-			switch block_size_bits {
-				case 0: {
-					// NOTE(fakhri): reserved
-					panic("block size using reserved bit");
-				}
-				case 1: {
-					block_size = 192;
-				}
-				case 2..=5: {
-					block_size = 144 << block_size_bits;
-				}
-				case 6: {
-					block_size = u32(bit_stream.bitstream_read_u8(&bitstream)) + 1;
-				}
-				case 7: {
-					block_size = u32(bit_stream.bitstream_read_u16be(&bitstream)) + 1;
-				}
-				case: {
-					block_size = 1 << block_size_bits;
-				}
-			}
-			
-			switch sample_rate_bits {
-				case 0: {
-					// NOTE(fakhri): nothing
-				}
-				case 1..=11: {
-					sample_rate = flac_sample_rates[sample_rate_bits - 1]
-				}
-				case 0xC: {
-					sample_rate = u32(bit_stream.bitstream_read_u8(&bitstream)) * 1000;
-				}
-				case 0xD: {
-					sample_rate = u32(bit_stream.bitstream_read_u16be(&bitstream));
-				}
-				case 0xE: {
-					sample_rate = 10 * u32(bit_stream.bitstream_read_u16be(&bitstream));
-				}
-				case 0xF: {
-					panic("forbidden sample rate bits pattern");
-				}
-			}
-			
-			nb_channels    = flac_block_channel_count[channels_bits];
-			channel_config = flac_block_channel_config[channels_bits];
-			block_crc = bit_stream.bitstream_read_u8(&bitstream);
-			
-			audio_samples_chunk = audio.make_audio_chunk(nb_channels, int(block_size), allocator);
-			audio.push_audio_chunk(&result, audio_samples_chunk);
-		}
-		
+	for !bit_stream.bitstream_is_empty(bitstream) {
 		temp := runtime.default_temp_allocator_temp_begin();
 		defer runtime.default_temp_allocator_temp_end(temp);
 		temp_alloc := runtime.arena_allocator(temp.arena);
-		block_samples := make([]Flac_Channel_Samples, nb_channels, temp_alloc);
 		
-		// NOTE(fakhri): decode subframes
-		for channel_index in 0..<nb_channels {
-			block_channel_samples := &block_samples[channel_index];
-			block_channel_samples.samples = make([]i32, block_size, temp_alloc);
-			
-			wasted_bits: u8;
-			subframe_type: Flac_Subframe_Type;
-			
-			if bit_stream.bitstream_read_bits_unsafe(&bitstream, 1) != 0 {
-				panic("first bit must start with 0");
-			}
-			subframe_type_bits := bit_stream.bitstream_read_bits_unsafe(&bitstream, 6);
-			switch subframe_type_bits {
-				case 0: {
-					subframe_type = Flac_Subframe_Constant{};
-				}
-				case 1: {
-					subframe_type = Flac_Subframe_Verbatism{};
-				}
-				case 0x08..=0xC: {
-					subframe_type = Flac_Subframe_Fixed_Prediction{order =  u8(subframe_type_bits) - 8};
-				}
-				case 0x20..=0x3F: {
-					subframe_type = Flac_Subframe_Linear_Prediction{order =  u8(subframe_type_bits) - 31};
-				}
-			}
-			
-			if bit_stream.bitstream_read_bits_unsafe(&bitstream, 1) == 1 { // NOTE(fakhri): has wasted bits
-				wasted_bits = 1;
-				
-				for bit_stream.bitstream_read_bits_unsafe(&bitstream, 1) != 1 {
-					wasted_bits += 1;
-				}
-			}
-			
-			sample_bit_depth := bits_depth - u8(wasted_bits);
-			
-			switch channel_config {
-				case .Left_Side, .Mid_Side: {
-					// NOTE(fakhri): increase bit depth by 1 in case this is a side channel
-					if channel_index == 1 {
-						sample_bit_depth += 1;
-					}
-				}
-				case .Side_Right: {
-					if channel_index == 0 {
-						sample_bit_depth += 1;
-					}
-				}
-				case .None, .Left_Right:;
-			}
-			
-			switch v in subframe_type {
-				case Flac_Subframe_Constant: {
-					sample_value := bit_stream.bitstream_read_sample_unencoded(&bitstream, sample_bit_depth, wasted_bits);
-					
-					for i in 0..<block_size {
-						block_channel_samples.samples[i] = sample_value;
-					}
-				}
-				case Flac_Subframe_Verbatism: {
-					for i in 0..<block_size {
-						block_channel_samples.samples[i] = bit_stream.bitstream_read_sample_unencoded(&bitstream, sample_bit_depth, wasted_bits);
-					}
-				}
-				case Flac_Subframe_Fixed_Prediction: {
-					for i in 0..<v.order {
-						block_channel_samples.samples[i] = bit_stream.bitstream_read_sample_unencoded(&bitstream, sample_bit_depth, wasted_bits);
-					}
-					
-					flac_decode_coded_residuals(&bitstream, block_channel_samples, block_size, int(v.order));
-					samples := block_channel_samples.samples;
-					switch v.order {
-						case 0: {
-						}
-						case 1: {
-							for i in u32(v.order)..<block_size do samples[i] += samples[i - 1];
-						}
-						case 2: {
-							for i in u32(v.order)..<block_size do samples[i] += 2 * samples[i - 1] - samples[i - 2];
-						}
-						case 3: {
-							for i in u32(v.order)..<block_size do samples[i] += 3 * samples[i - 1] - 3 * samples[i - 2] + samples[i - 3];
-						}
-						case 4: {
-							for i in u32(v.order)..<block_size do samples[i] += 4 * samples[i - 1] - 6 * samples[i - 2] + 4 * samples[i - 3] - samples[i - 4];
-						}
-						case: {
-							panic("invalid order");
-						}
-					}
-				}
-				case Flac_Subframe_Linear_Prediction: {
-					for i in 0..<v.order {
-						block_channel_samples.samples[i] = bit_stream.bitstream_read_sample_unencoded(&bitstream, sample_bit_depth, wasted_bits);
-					}
-					
-					predictor_coef_precision_bits := bit_stream.bitstream_read_bits_unsafe(&bitstream, 4);
-					assert(predictor_coef_precision_bits != 0xF);
-					predictor_coef_precision_bits += 1;
-					right_shift := bit_stream.bitstream_read_bits_unsafe(&bitstream, 5);
-					
-					coefficients := make([]i32, v.order, temp_alloc);
-					for i in 0..<v.order {
-						coefficients[i] = bit_stream.bitstream_read_sample_unencoded(&bitstream, u8(predictor_coef_precision_bits), 0);
-					}
-					
-					flac_decode_coded_residuals(&bitstream, block_channel_samples, block_size, int(v.order));
-					samples := block_channel_samples.samples;
-					for i in u32(v.order)..<block_size {
-						predictor_value: i32;
-						for c, j in coefficients {
-							sample_val := samples[int(i) - j - 1];
-							predictor_value += c * sample_val;
-						}
-						predictor_value >>= right_shift;
-						samples[i] += predictor_value;
-					}
-				}
-			}
-		}
+		block_samples, block_size := decode_one_block(&flac_stream, temp_alloc);
+		nb_channels := len(block_samples);
 		
-		// NOTE(fakhri): undo channel decoration
-		switch channel_config {
-			case .Left_Side: {
-				for i in 0..<block_size {
-					block_samples[1].samples[i] += block_samples[0].samples[i];
-				}
-			}
-			case .Side_Right: {
-				for i in 0..<block_size {
-					block_samples[0].samples[i] += block_samples[1].samples[i];
-				}
-			}
-			case .Mid_Side: {
-				for i in 0..<block_size {
-					mid := block_samples[0].samples[i];
-					dif := block_samples[1].samples[i];
-					
-					block_samples[0].samples[i] = (2 * mid + dif) >> 1;
-					block_samples[1].samples[i] = (2 * mid - dif) >> 1;
-				}
-			}
-			case .None, .Left_Right: // nothing
-		}
+		audio_samples_chunk := audio.make_audio_chunk(u8(nb_channels), int(block_size), allocator);
+		audio.push_audio_chunk(&result, audio_samples_chunk);
 		
 		// NOTE(fakhri): copy the samples to result buffer
 		{
@@ -968,12 +573,6 @@ decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audi
 					audio_samples_chunk.channels[channel_index].samples[sample_index] = sample_value;
 				}
 			}
-		}
-		
-		// NOTE(fakhri): decode footer
-		{
-			bit_stream.bitstream_advance_to_next_byte_boundary(&bitstream);
-			bit_stream.bitstream_read_bits_unsafe(&bitstream, 16);
 		}
 	}
 	
