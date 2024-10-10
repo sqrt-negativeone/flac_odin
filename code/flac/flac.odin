@@ -240,7 +240,6 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 		
 		coded_byte0 := bit_stream.bitstream_read_u8(bitstream);
 		
-		// TODO(fakhri): test if the coded number is decoded correctly
 		switch coded_byte0 { // 0xxx_xxxx
 			case 0..=0x7F: {
 				coded_number = u64(coded_byte0);
@@ -299,7 +298,7 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 				
 				coded_number = ((u64(coded_byte0 & 0x01) << 30) | 
 					(u64(coded_byte1 & 0x3F) << 24) | 
-					(u64(coded_byte2 & 0x0F) << 18) | 
+					(u64(coded_byte2 & 0x3F) << 18) | 
 					(u64(coded_byte3 & 0x3F) << 12) | 
 					(u64(coded_byte4 & 0x3F) << 6)  | 
 					u64(coded_byte5 & 0x3F));
@@ -323,7 +322,7 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 				
 				coded_number = ((u64(coded_byte1 & 0x3F) << 30) | 
 					(u64(coded_byte2 & 0x3F) << 24) | 
-					(u64(coded_byte3 & 0x0F) << 18) | 
+					(u64(coded_byte3 & 0x3F) << 18) | 
 					(u64(coded_byte4 & 0x3F) << 12) | 
 					(u64(coded_byte5 & 0x3F) << 6) | 
 					u64(coded_byte6 & 0x3F));
