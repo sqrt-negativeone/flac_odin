@@ -93,7 +93,7 @@ flac_bits_depth: []i16= {
 }
 
 Flac_Channel_Samples :: struct {
-	samples: []i32,
+	samples: []i64,
 }
 
 Flac_Stream :: struct {
@@ -194,6 +194,7 @@ init_flac_stream :: proc(data: []u8) -> (flac_stream: Flac_Stream) {
 	
 	return;
 }
+
 
 decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocator) -> (block_samples: []Flac_Channel_Samples, block_size: u32) {
 	bitstream := &flac_stream.bitstream;
@@ -382,7 +383,7 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 	// NOTE(fakhri): decode subframes
 	for channel_index in 0..<nb_channels {
 		block_channel_samples := &block_samples[channel_index];
-		block_channel_samples.samples = make([]i32, block_size, allocator);
+		block_channel_samples.samples = make([]i64, block_size, allocator);
 		
 		wasted_bits: u8;
 		subframe_type: Flac_Subframe_Type;
@@ -481,7 +482,7 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 				predictor_coef_precision_bits += 1;
 				right_shift := bit_stream.bitstream_read_bits_unsafe(bitstream, 5);
 				
-				coefficients := make([]i32, v.order, context.temp_allocator);
+				coefficients := make([]i64, v.order, context.temp_allocator);
 				for i in 0..<v.order {
 					coefficients[i] = bit_stream.bitstream_read_sample_unencoded(bitstream, u8(predictor_coef_precision_bits));
 				}
@@ -489,7 +490,7 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 				flac_decode_coded_residuals(bitstream, block_channel_samples, block_size, int(v.order));
 				samples := block_channel_samples.samples;
 				for i in u32(v.order)..<block_size {
-					predictor_value: i32;
+					predictor_value: i64;
 					for c, j in coefficients {
 						sample_val := samples[int(i) - j - 1];
 						predictor_value += c * sample_val;
@@ -622,13 +623,13 @@ flac_decode_coded_residuals :: proc(bitstream: ^bit_stream.Bit_Stream, block_sam
 			}
 		} else {
 			for _ in 0..<residual_samples_count {
-				msp: i32 = 0;
+				msp: i64 = 0;
 				for bit_stream.bitstream_read_bits_unsafe(bitstream, 1) == 0 {
 					msp += 1;
 				}
-				lsp := i32(bit_stream.bitstream_read_bits_unsafe(bitstream, paramter));
+				lsp := i64(bit_stream.bitstream_read_bits_unsafe(bitstream, paramter));
 				
-				sample_value: i32 = 0;
+				sample_value: i64 = 0;
 				folded_sample_value := (msp << paramter) | lsp;
 				sample_value = folded_sample_value >> 1;
 				if folded_sample_value & 1 == 1 {

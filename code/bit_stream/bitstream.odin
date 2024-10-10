@@ -51,14 +51,19 @@ bitstream_read_bits_unsafe :: proc(bitstream: ^Bit_Stream, bits: u8) -> (result:
 	return result;
 }
 
-bitstream_read_sample_unencoded :: proc(bitstream: ^Bit_Stream, sample_bit_depth: u8, shift_bits: u8 = 0) -> i32 {
-	sample_value := i32(bitstream_read_bits_unsafe(bitstream, sample_bit_depth) << shift_bits);
+sign_extend :: proc(value: i64, bits_width: u8) -> (result: i64) {
+	value_sign_bit := i64(value & (1 << (bits_width - 1)));
+	mask_bits := i64(value_sign_bit << (64 - bits_width));
+	mask_bits >>= 64 - bits_width;
+	result = value | mask_bits;
+	return;
+}
+
+bitstream_read_sample_unencoded :: proc(bitstream: ^Bit_Stream, sample_bit_depth: u8, shift_bits: u8 = 0) -> i64 {
+	sample_value := i64(bitstream_read_bits_unsafe(bitstream, sample_bit_depth) << shift_bits);
 	bits_width := sample_bit_depth + shift_bits;
-	sample_sign_bit := i32(sample_value & (1 << (bits_width - 1)));
-	mask_bits := i32(sample_sign_bit << (32 - bits_width));
-	mask_bits >>= 32 - bits_width;
-	sample_value |= mask_bits;
-	return i32(sample_value);
+	sample_value = sign_extend(sample_value, bits_width);
+	return sample_value;
 }
 
 bitstream_read_u8 :: proc(bitstream: ^Bit_Stream) -> (result: u8) {
