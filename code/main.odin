@@ -71,23 +71,9 @@ main :: proc() {
 			resample_factor := (1 << (streaminfo.bits_per_sample - 1));
 			
 			for sample_index in 0..<int(block_size) {
-				when true {
-					for channel_index in 0..<nb_channels {
-						sample_value := f32(block_samples[channel_index].samples[sample_index]) / f32(resample_factor);
-						append(&samples, sample_value);
-					}
-				}
-				else {
-					append(&samples, 0);
-					
-					if nb_channels > 1 {
-						sample_value := f32(block_samples[1].samples[sample_index]) / f32(resample_factor);
-						append(&samples, sample_value);
-					}
-					
-					for _ in 2..<nb_channels {
-						append(&samples, 0);
-					}
+				for channel_index in 0..<nb_channels {
+					sample_value := f32(block_samples[channel_index].samples[sample_index]) / f32(resample_factor);
+					append(&samples, sample_value);
 				}
 			}
 		}

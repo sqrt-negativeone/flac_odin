@@ -219,6 +219,7 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 		assert(sync_code == 0x7ffc); // 0b111111111111100
 		
 		// TODO(fakhri): didn't test Variable_Size startegy yet!!
+		// TODO(fakhri): make sure that this value doesn't change through the stream
 		block_strat = Flac_Block_Strategy(bit_stream.bitstream_read_bits_unsafe(bitstream, 1));
 		
 		block_size_bits  := bit_stream.bitstream_read_bits_unsafe(bitstream, 4);
@@ -432,7 +433,7 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 		
 		switch v in subframe_type {
 			case Flac_Subframe_Constant: {
-				sample_value := bit_stream.bitstream_read_sample_unencoded(bitstream, sample_bit_depth, wasted_bits);
+				sample_value := bit_stream.bitstream_read_sample_unencoded(bitstream, sample_bit_depth);
 				
 				for i in 0..<block_size {
 					block_channel_samples.samples[i] = sample_value;
@@ -440,12 +441,12 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 			}
 			case Flac_Subframe_Verbatism: {
 				for i in 0..<block_size {
-					block_channel_samples.samples[i] = bit_stream.bitstream_read_sample_unencoded(bitstream, sample_bit_depth, wasted_bits);
+					block_channel_samples.samples[i] = bit_stream.bitstream_read_sample_unencoded(bitstream, sample_bit_depth);
 				}
 			}
 			case Flac_Subframe_Fixed_Prediction: {
 				for i in 0..<v.order {
-					block_channel_samples.samples[i] = bit_stream.bitstream_read_sample_unencoded(bitstream, sample_bit_depth, wasted_bits);
+					block_channel_samples.samples[i] = bit_stream.bitstream_read_sample_unencoded(bitstream, sample_bit_depth);
 				}
 				
 				flac_decode_coded_residuals(bitstream, block_channel_samples, block_size, int(v.order));
@@ -472,7 +473,7 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 			}
 			case Flac_Subframe_Linear_Prediction: {
 				for i in 0..<v.order {
-					block_channel_samples.samples[i] = bit_stream.bitstream_read_sample_unencoded(bitstream, sample_bit_depth, wasted_bits);
+					block_channel_samples.samples[i] = bit_stream.bitstream_read_sample_unencoded(bitstream, sample_bit_depth);
 				}
 				
 				predictor_coef_precision_bits := bit_stream.bitstream_read_bits_unsafe(bitstream, 4);
@@ -482,7 +483,7 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 				
 				coefficients := make([]i32, v.order, context.temp_allocator);
 				for i in 0..<v.order {
-					coefficients[i] = bit_stream.bitstream_read_sample_unencoded(bitstream, u8(predictor_coef_precision_bits), 0);
+					coefficients[i] = bit_stream.bitstream_read_sample_unencoded(bitstream, u8(predictor_coef_precision_bits));
 				}
 				
 				flac_decode_coded_residuals(bitstream, block_channel_samples, block_size, int(v.order));
@@ -498,21 +499,23 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 				}
 			}
 		}
+		
+		if wasted_bits != 0 {
+			for i in 0..<block_size do block_channel_samples.samples[i] <<= wasted_bits;
+		}
 	}
 	
-	// NOTE(fakhri): undo channel decoration
+	// NOTE(fakhri): undo inter-channel  decorrelation
 	switch channel_config {
 		case .Left_Side: {
 			for i in 0..<block_size {
 				side := block_samples[1].samples[i];
-				
 				block_samples[1].samples[i] = block_samples[0].samples[i] - side;
 			}
 		}
 		case .Side_Right: {
 			for i in 0..<block_size {
 				side := block_samples[0].samples[i];
-				
 				block_samples[0].samples[i] = side + block_samples[1].samples[i];
 			}
 		}
