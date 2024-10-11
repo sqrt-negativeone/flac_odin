@@ -4,7 +4,6 @@ import "base:runtime"
 import "core:mem"
 import mem_virtual "core:mem/virtual"
 import "core:math"
-import "src:audio"
 import bit_stream "src:bit_stream"
 
 Flac_Stream_Info :: struct {
@@ -589,49 +588,6 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 	}
 	return;
 }
-
-decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audio.Music_Audio)
-{
-	flac_stream: Flac_Stream;
-	init_flac_stream(&flac_stream, data);
-	
-	bitstream := &flac_stream.bitstream;
-	streaminfo := &flac_stream.streaminfo;
-	
-	result.sample_rate    = streaminfo.sample_rate;
-	result.channels_count = u32(streaminfo.nb_channels);
-	
-	// NOTE(fakhri): decode frames
-	for !bit_stream.bitstream_is_empty(bitstream) {
-		temp := runtime.default_temp_allocator_temp_begin();
-		defer runtime.default_temp_allocator_temp_end(temp);
-		temp_alloc := runtime.arena_allocator(temp.arena);
-		
-		block_samples, block_size := decode_one_block(&flac_stream, temp_alloc);
-		nb_channels := len(block_samples);
-		
-		audio_samples_chunk := audio.make_audio_chunk(u8(nb_channels), int(block_size), allocator);
-		audio.push_audio_chunk(&result, audio_samples_chunk);
-		
-		// NOTE(fakhri): copy the samples to result buffer
-		{
-			range_min_val := (1 << (streaminfo.bits_per_sample - 1));
-			range_max_val := (1 << (streaminfo.bits_per_sample - 1)) - 1;
-			
-			audio_samples_chunk.samples_count = int(block_size);
-			for channel_index in 0..<nb_channels {
-				for sample_index in 0..<int(block_size) {
-					sample_value := f32(block_samples[channel_index].samples[sample_index]);
-					sample_value = math.remap(sample_value, -f32(range_min_val), f32(range_max_val), -1, 1);
-					audio_samples_chunk.channels[channel_index].samples[sample_index] = sample_value;
-				}
-			}
-		}
-	}
-	
-	return;
-}
-
 
 flac_decode_coded_residuals :: proc(bitstream: ^bit_stream.Bit_Stream, block_samples: ^Flac_Channel_Samples, block_size: u32, order: int) {
 	params_bits: u8;
