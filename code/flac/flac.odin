@@ -1,6 +1,8 @@
 package mplayer_flac
 
 import "base:runtime"
+import "core:mem"
+import mem_virtual "core:mem/virtual"
 import "core:math"
 import "src:audio"
 import bit_stream "src:bit_stream"
@@ -100,14 +102,25 @@ Flac_Stream :: struct {
 	done: bool,
 	bitstream: bit_stream.Bit_Stream,
 	streaminfo: Flac_Stream_Info,
+	block_arena: mem_virtual.Arena,
+	block_allocator: runtime.Allocator,
+	recent_block_size: int,
+	recent_block: []Flac_Channel_Samples,
+	remaining_frames_count: int,
 }
 
-init_flac_stream :: proc(data: []u8) -> (flac_stream: Flac_Stream) {
+init_flac_stream :: proc(flac_stream: ^Flac_Stream, data: []u8) {
 	flac_stream.bitstream = {
 		data = data,
 		byte_index = 0,
 		bits_left  = 8,
 	};
+	
+	// 8 MB is more than enough to store a decoded block of samples
+	if err := mem_virtual.arena_init_static(&flac_stream.block_arena, 8 * mem.Megabyte); err != .None {
+		panic("failed to init flac block arena ");
+	}
+	flac_stream.block_allocator = mem_virtual.arena_allocator(&flac_stream.block_arena);
 	
 	bitstream := &flac_stream.bitstream;
 	streaminfo := &flac_stream.streaminfo;
@@ -195,6 +208,42 @@ init_flac_stream :: proc(data: []u8) -> (flac_stream: Flac_Stream) {
 	return;
 }
 
+
+read_samples :: proc(flac_stream: ^Flac_Stream, requested_frames_count: int, allocator := context.allocator) -> (samples: []f32, frames_count: int) {
+	remaining_frames_count := requested_frames_count;
+	samples = make([]f32, requested_frames_count * int(flac_stream.streaminfo.nb_channels), allocator);
+	resample_factor := (1 << (flac_stream.streaminfo.bits_per_sample - 1));
+	
+	for remaining_frames_count != 0 {
+		if flac_stream.remaining_frames_count != 0 {
+			frames_to_copy := math.min(flac_stream.remaining_frames_count, remaining_frames_count);
+			offset := flac_stream.recent_block_size - flac_stream.remaining_frames_count;
+			nb_channels := len(flac_stream.recent_block);
+			for index in 0..<frames_to_copy {
+				for channel, c_index in flac_stream.recent_block {
+					output_offset := (index + frames_count) * nb_channels + c_index;
+					samples[output_offset] = f32(channel.samples[offset + index]) / f32(resample_factor);
+				}
+			}
+			flac_stream.remaining_frames_count -= frames_to_copy;
+			remaining_frames_count -= frames_to_copy;
+			frames_count += frames_to_copy;
+		}
+		else {
+			mem_virtual.arena_free_all(&flac_stream.block_arena);
+			block_size: u32;
+			flac_stream.recent_block, block_size = decode_one_block(flac_stream, flac_stream.block_allocator);
+			flac_stream.recent_block_size = int(block_size);
+			flac_stream.remaining_frames_count = flac_stream.recent_block_size;
+			
+			if block_size == 0 {
+				// NOTE(fakhri): EOF
+				break;
+			}
+		}
+	}
+	return;
+}
 
 decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocator) -> (block_samples: []Flac_Channel_Samples, block_size: u32) {
 	bitstream := &flac_stream.bitstream;
@@ -481,7 +530,7 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 				predictor_coef_precision_bits += 1;
 				right_shift := bit_stream.bitstream_read_bits_unsafe(bitstream, 5);
 				
-				coefficients := make([]i64, v.order, context.temp_allocator);
+				coefficients := make([]i64, v.order, allocator);
 				for i in 0..<v.order {
 					coefficients[i] = bit_stream.bitstream_read_sample_unencoded(bitstream, u8(predictor_coef_precision_bits));
 				}
@@ -543,7 +592,8 @@ decode_one_block :: proc(flac_stream: ^Flac_Stream, allocator := context.allocat
 
 decode_flac :: proc(data: []u8, allocator := context.allocator) -> (result: audio.Music_Audio)
 {
-	flac_stream := init_flac_stream(data);
+	flac_stream: Flac_Stream;
+	init_flac_stream(&flac_stream, data);
 	
 	bitstream := &flac_stream.bitstream;
 	streaminfo := &flac_stream.streaminfo;

@@ -50,35 +50,44 @@ main :: proc() {
 	
 	fmt.println("Reading file:", file_name);
 	if !ok {return;}
-	flac_stream := flac.init_flac_stream(data);
+	flac_stream: flac.Flac_Stream;
+	flac.init_flac_stream(&flac_stream, data);
 	
 	samples: [dynamic]f32;
 	defer delete(samples);
 	
-	for {
-		runtime.free_all(context.temp_allocator);
-		block_samples, block_size := flac.decode_one_block(&flac_stream, context.temp_allocator);
-		if block_size == 0 {
-			break;
-		}
-		
-		nb_channels := len(block_samples);
-		
-		// NOTE(fakhri): copy the samples to result buffer
-		{
-			streaminfo := &flac_stream.streaminfo;
+	when false {
+		for {
+			runtime.free_all(context.temp_allocator);
+			block_samples, block_size := flac.decode_one_block(&flac_stream, context.temp_allocator);
+			if block_size == 0 {
+				break;
+			}
 			
-			resample_factor := (1 << (streaminfo.bits_per_sample - 1));
+			nb_channels := len(block_samples);
 			
-			for sample_index in 0..<int(block_size) {
-				for channel_index in 0..<nb_channels {
-					sample_value := f32(block_samples[channel_index].samples[sample_index]) / f32(resample_factor);
-					append(&samples, sample_value);
+			// NOTE(fakhri): copy the samples to result buffer
+			{
+				streaminfo := &flac_stream.streaminfo;
+				
+				resample_factor := (1 << (streaminfo.bits_per_sample - 1));
+				
+				for sample_index in 0..<int(block_size) {
+					for channel_index in 0..<nb_channels {
+						sample_value := f32(block_samples[channel_index].samples[sample_index]) / f32(resample_factor);
+						append(&samples, sample_value);
+					}
 				}
 			}
 		}
 	}
-	
+	else {
+		for !flac_stream.done {
+			runtime.free_all(context.temp_allocator);
+			streamed_samples, frames_count := flac.read_samples(&flac_stream, 1024, context.temp_allocator);
+			append(&samples, ..streamed_samples[:frames_count * int(flac_stream.streaminfo.nb_channels)]);
+		}
+	}
 	fmt.println("Done.");
 	
 	fmt.println("Channels Count:", flac_stream.streaminfo.nb_channels);
