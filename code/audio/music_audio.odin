@@ -1,4 +1,4 @@
-package mplayer_audio
+package flac_odin_audio
 
 
 MAX_CHANNEL_COUNT :: 8

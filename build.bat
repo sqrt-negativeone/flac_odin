@@ -1,7 +1,7 @@
 @echo off
 
 :: choose name for the program
-set exe_name=mplayer
+set exe_name=flac_odin
 set code=%cd%
 
 :: On=1, Off=0

@@ -1,10 +1,11 @@
-package mplayer
+package flac_odin
 
 import "base:runtime"
 import mem_virtual "core:mem/virtual"
 import "core:mem"
 import "core:os"
 import "core:fmt"
+import "core:time"
 import "src:flac"
 
 import ma "vendor:miniaudio"
@@ -77,6 +78,7 @@ main :: proc() {
 	
 	ma.device_start(&device);
 	for !playback_buffer.playback_done {
+		time.sleep(1000);
 	}
 	
 	ma.device_stop(&device);

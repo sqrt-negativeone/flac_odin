@@ -1,4 +1,4 @@
-package mplayer_flac
+package flac_odin_flac
 
 import "base:runtime"
 import "core:mem"

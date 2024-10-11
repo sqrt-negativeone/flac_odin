@@ -1,6 +1,6 @@
 #!/bin/bash
 
-app_name="mplayer"
+app_name="flac_odin"
 
 code="$PWD"
 common_opts="-show-timings -collection:src=$code/code -microarch:native -warnings-as-errors -vet"

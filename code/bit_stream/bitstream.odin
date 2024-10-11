@@ -1,4 +1,4 @@
-package mplayer_bitsream
+package flac_odin_bitsream
 
 
 Bit_Stream :: struct {

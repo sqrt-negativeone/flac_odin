@@ -1,5 +1,5 @@
 version(2);
-project_name = "mplayer";
+project_name = "flac_odin";
 
 
 indent_with_tabs = true;
